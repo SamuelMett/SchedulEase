@@ -9,7 +9,7 @@ client = OpenAI() # Assumes OPENAI_API_KEY is set in environment
 def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an expert at extracting structured data. Analyze the text and provide a summary and a list of all calendar events mentioned."},
                 {"role": "user", "content": text}

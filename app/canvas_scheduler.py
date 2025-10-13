@@ -23,7 +23,7 @@ def schedule_event_in_canvas(api_url: str, api_key: str, course_id: int, event_d
         # ------------------------
         
         # Create the event on the main canvas object
-        new_event = canvas.create_calendar_event(**event_payload)
+        new_event = canvas.create_calendar_event(calendar_event=event_payload)
         
         return ScheduledEvent(
             canvas_event_id=new_event.id,
