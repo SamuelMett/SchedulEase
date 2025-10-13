@@ -1,1 +1,6 @@
-config.py
+# Environment Variables
+.env
+
+# Python Cache
+__pycache__/
+venv/

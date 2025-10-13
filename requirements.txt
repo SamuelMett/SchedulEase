@@ -1,0 +1,5 @@
+fastapi[all]
+openai
+canvasapi
+pypdf
+python-docx
