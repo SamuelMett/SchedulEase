@@ -4,7 +4,10 @@ load_dotenv() # reads env file
 
 import os
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from authlib.integrations.starlette_client import OAuth
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
@@ -24,25 +27,102 @@ if not all([CANVAS_API_URL, CANVAS_API_KEY, os.getenv("OPENAI_API_KEY")]):
 # --- Initialize FastAPI App ---
 app = FastAPI(title="AI Scheduling Assistant API")
 
-# Add CORS middleware for Blazor frontend
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5001", "https://localhost:7082"], # Add your Blazor URL
+    allow_origins=["http://localhost:5001", "https://localhost:7082"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Starlett Middleware
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
-# --- API Endpoint ---
+# OAuth 2.0
+oauth = OAuth()
+
+# Google OAuth
+oauth.register(
+    name='google',
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# Canvas OAuth
+oauth.register(
+    name='canvas',
+    client_id=os.getenv("CANVAS_CLIENT_ID"),
+    client_secret=os.getenv("CANVAS_CLIENT_SECRET"),
+    access_token_url=f'{os.getenv("CANVAS_API_URL")}/login/oauth2/token',
+    authorize_url=f'{os.getenv("CANVAS_API_URL")}/login/oauth2/auth',
+    api_base_url=f'{os.getenv("CANVAS_API_URL")}/api/v1/',
+    client_kwargs={'scope': 'url:GET|/api/v1/users/:user_id/profile url:POST|/api/v1/calendar_events'} # Example scopes
+)
+
+
+# --- API Routes ---
+"""Google"""
+@app.get('/')
+async def homepage(request: Request):
+    user = request.session.get('user')
+    if user:
+        return HTMLResponse(f'<h1>Hello, {user["name"]}!</h1><a href="/logout">Logout</a><br><a href="/connect/canvas">Connect to Canvas</a>')
+    return HTMLResponse('<h1>Welcome!</h1><a href="/login">Login with Google</a>')
+
+@app.get('/login')
+async def login(request: Request):
+    redirect_uri = request.url_for('auth')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get('/auth')
+async def auth(request: Request):
+    token = await oauth.google.authorize_access_token(request)
+    request.session['user'] = token.get('userinfo')
+    return RedirectResponse(url='/')
+
+@app.get('/logout')
+async def logout(request: Request):
+    request.session.pop('user', None)
+    return RedirectResponse(url='/')
+"""-------"""
+
+""" Canvas """
+@app.get('/connect/canvas')
+async def connect_canvas(request: Request):
+    # Ensure user is logged in first
+    if not request.session.get('user'):
+        return RedirectResponse(url='/')
+    
+    redirect_uri = request.url_for('canvas_auth')
+    return await oauth.canvas.authorize_redirect(request, redirect_uri)
+
+@app.get('/canvas/auth')
+async def canvas_auth(request: Request):
+    token = await oauth.canvas.authorize_access_token(request)
+    
+    # Securely store the token (e.g., in a database) associated with the logged-in user.
+    # For this example, we'll just put it in the session.
+    request.session['canvas_token'] = token
+    print("Canvas Token Acquired:", token)
+    
+    # You can now use this token to make API calls
+    # Example: Fetching user profile from Canvas
+    resp = await oauth.canvas.get('users/self/profile', token=token)
+    profile = resp.json()
+    
+    return HTMLResponse(f"<h1>Canvas Connected!</h1><p>Canvas Name: {profile.get('name')}</p><a href='/'>Go Home</a>")
+"""-----"""
+
+"""Upload File"""
 @app.post("/api/documents/schedule-from-file/", response_model=FinalApiResponse)
 async def upload_and_schedule(
     course_id: int = Form(...),
     file: UploadFile = File(...)
 ):
-    """
-    This endpoint processes a file, extracts events with AI, and schedules them in Canvas.
-    """
+
     # 1. Save the uploaded file temporarily
     temp_file_path = f"temp_{file.filename}"
     with open(temp_file_path, "wb") as buffer:
@@ -92,3 +172,4 @@ async def upload_and_schedule(
         # 6. Clean up the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+"""------"""
