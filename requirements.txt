@@ -1,0 +1,10 @@
+fastapi[all]
+openai
+canvasapi
+pypdf
+python-docx
+python-dotenv
+authlib
+httpx
+google-api-python-client
+google-auth-oauthlib
