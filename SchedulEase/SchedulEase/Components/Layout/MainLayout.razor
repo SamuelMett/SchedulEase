@@ -1,23 +1,45 @@
 ﻿@inherits LayoutComponentBase
+@using SchedulEase.Components.Layout
+@using SchedulEase.Components.Chat
 
-<div class="page">
-    <div class="sidebar">
+<div class="min-h-screen bg-gray-900 text-white flex">
+    <!-- Sidebar -->
+    <aside class="hidden md:block w-64 bg-gray-800 border-r border-gray-700">
         <NavMenu />
+    </aside>
+
+    <!-- Main column -->
+    <div class="flex-1 min-w-0 flex flex-col">
+        <!-- Top bar -->
+        <header class="sticky top-0 z-40 bg-gray-800 border-b border-gray-700">
+            <div class="px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600">S</span>
+                    <h1 class="text-lg font-semibold">Schedul<span class="text-red-500">Ease</span></h1>
+                </div>
+                <nav class="text-sm">
+                    <a href="https://learn.microsoft.com/aspnet/core/" target="_blank"
+                       class="text-gray-300 hover:text-indigo-400 transition-colors">About</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Page body -->
+        <main class="flex-1 min-w-0">
+            <article class="content px-4 py-6 container mx-auto">
+                @Body
+            </article>
+        </main>
     </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
 </div>
 
-<div id="blazor-error-ui">
+<!-- Floating Chat bubble on every page -->
+<ChatBot /> 
+
+
+<!-- Blazor error UI -->
+<div id="blazor-error-ui" class="bg-red-600 text-white fixed bottom-0 left-0 right-0 p-2 text-sm hidden">
     An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
+    <a href="" class="underline font-semibold">Reload</a>
+    <a class="dismiss cursor-pointer ml-2">🗙</a>
 </div>
