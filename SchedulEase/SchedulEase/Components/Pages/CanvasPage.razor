@@ -1,0 +1,21 @@
+﻿@page "/canvas"
+@using SchedulEase.Models
+@using SchedulEase.Services
+@inject AppState AppState
+
+<CanvasConnect OnConnect="HandleCanvasConnect" OnAssignmentsImported="HandleAssignmentsImported" />
+
+@code {
+    private void HandleCanvasConnect(List<CanvasCourse> courses)
+    {
+        // This callback can be used for logging or other UI updates
+        Console.WriteLine($"{courses.Count} courses connected from Canvas.");
+    }
+
+    private void HandleAssignmentsImported(List<CalendarEvent> assignments)
+    {
+        AppState.AddCanvasEvents(assignments);
+        // Optionally navigate to the calendar page after import
+        // NavigationManager.NavigateTo("/calendar");
+    }
+}

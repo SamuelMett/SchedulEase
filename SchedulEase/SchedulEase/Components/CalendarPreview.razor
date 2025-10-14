@@ -1,0 +1,187 @@
+﻿@using SchedulEase.Models
+@using System.Text
+@inject IJSRuntime JSRuntime
+
+<div class="bg-card p-6 rounded-lg border space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h2 class="text-xl font-semibold">Calendar Preview</h2>
+            <p class="text-sm text-muted-foreground">@Events.Count event(s) found</p>
+        </div>
+        <div class="flex gap-2">
+            <button @onclick="DownloadIcs" class="inline-flex items-center px-3 py-1 border border-border text-xs rounded-md bg-transparent hover:bg-accent">
+                <Icon Name="Download" Class="w-4 h-4 mr-2" />
+                Download ICS
+            </button>
+            <button class="inline-flex items-center justify-center px-3 py-1 text-xs font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90">
+                <Icon Name="ExternalLink" Class="w-4 h-4 mr-2" />
+                Add to Google Calendar
+            </button>
+        </div>
+    </div>
+
+    <div>
+        <div class="grid w-full grid-cols-2 bg-muted p-1 rounded-md">
+            <button @onclick='() => view = "calendar"' class="@(view == "calendar" ? "bg-background text-foreground shadow-sm" : "") px-3 py-1.5 text-sm font-medium rounded-md">Calendar View</button>
+            <button @onclick='() => view = "list"' class="@(view == "list" ? "bg-background text-foreground shadow-sm" : "") px-3 py-1.5 text-sm font-medium rounded-md">List View</button>
+        </div>
+    </div>
+    
+    @if (view == "calendar")
+    {
+        <div class="space-y-4">
+             <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold">@currentDate.ToString("MMMM yyyy")</h3>
+                <div class="flex gap-2">
+                    <button @onclick="() => NavigateMonth(-1)" class="p-2 border rounded-md hover:bg-accent"><Icon Name="ChevronLeft" Class="w-4 h-4" /></button>
+                    <button @onclick="() => NavigateMonth(1)" class="p-2 border rounded-md hover:bg-accent"><Icon Name="ChevronRight" Class="w-4 h-4" /></button>
+                </div>
+             </div>
+             <div class="border rounded-lg overflow-hidden">
+                <div class="grid grid-cols-7 bg-muted/50">
+                    @foreach (var day in new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" })
+                    {
+                        <div class="p-3 text-center text-sm font-medium">@day</div>
+                    }
+                </div>
+                <div class="grid grid-cols-7">
+                    @foreach (var day in calendarDays)
+                    {
+                        <div @onclick="() => HandleDateClick(day)" 
+                             class="p-1 min-h-[120px] border-t border-r @(day.Date.HasValue && day.Events.Any() ? "cursor-pointer" : "") @(day.IsToday ? "bg-primary/5" : "")">
+                            @if (day.Date.HasValue)
+                            {
+                                <div class="text-sm font-medium mb-2 px-1">@day.Date.Value.Day</div>
+                                <div class="space-y-1">
+                                    @foreach(var ev in day.Events.Take(2))
+                                    {
+                                        <div class="@GetEventTypeColor(ev.Type) text-xs p-1.5 rounded-md text-center truncate shadow-sm">
+                                            @ev.Title
+                                        </div>
+                                    }
+                                    @if(day.Events.Count > 2)
+                                    {
+                                        <div class="text-xs text-muted-foreground text-center bg-muted/50 p-1 rounded-md">
+                                            +@(day.Events.Count - 2) more
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+             </div>
+        </div>
+    }
+    else
+    {
+        <div class="space-y-4">
+            @foreach (var monthGroup in groupedByMonth)
+            {
+                <div class="space-y-3">
+                    <h3 class="font-semibold text-lg text-muted-foreground border-b border-border pb-2">
+                        @monthGroup.Key
+                    </h3>
+                    @foreach (var ev in monthGroup)
+                    {
+                        }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (selectedDayEvents.Any())
+{
+    }
+
+@code {
+    [Parameter] public List<CalendarEvent> Events { get; set; } = new();
+
+    private string view = "calendar";
+    private DateTime currentDate = DateTime.Today;
+    private List<CalendarDay> calendarDays = new();
+    
+    private List<CalendarEvent> selectedDayEvents = new();
+    private DateTime? selectedDate = null;
+
+    private Dictionary<CalendarEventType, string> eventTypeColors = new()
+    {
+        { CalendarEventType.Assignment, "bg-blue-900/30 text-blue-200 border-blue-500/30" },
+        { CalendarEventType.Exam, "bg-red-900/30 text-red-200 border-red-500/30" },
+        { CalendarEventType.Lecture, "bg-green-900/30 text-green-200 border-green-500/30" },
+        { CalendarEventType.Deadline, "bg-orange-900/30 text-orange-200 border-orange-500/30" }
+    };
+    
+    private IEnumerable<IGrouping<string, CalendarEvent>> groupedByMonth => Events
+        .OrderBy(e => e.Date)
+        .GroupBy(e => e.Date.ToString("MMMM yyyy"));
+
+    protected override void OnInitialized()
+    {
+        RenderCalendarGrid();
+    }
+
+    private void RenderCalendarGrid()
+    {
+        calendarDays.Clear();
+        var firstDayOfMonth = new DateTime(currentDate.Year, currentDate.Month, 1);
+        var daysInMonth = DateTime.DaysInMonth(currentDate.Year, currentDate.Month);
+        int dayOfWeek = (int)firstDayOfMonth.DayOfWeek;
+
+        for (int i = 0; i < dayOfWeek; i++)
+        {
+            calendarDays.Add(new CalendarDay());
+        }
+
+        for (int i = 1; i <= daysInMonth; i++)
+        {
+            var date = new DateTime(currentDate.Year, currentDate.Month, i);
+            calendarDays.Add(new CalendarDay
+            {
+                Date = date,
+                IsToday = date.Date == DateTime.Today,
+                Events = Events.Where(e => e.Date == DateOnly.FromDateTime(date)).ToList()
+            });
+        }
+    }
+    
+    private void NavigateMonth(int monthOffset)
+    {
+        currentDate = currentDate.AddMonths(monthOffset);
+        RenderCalendarGrid();
+    }
+
+    private void HandleDateClick(CalendarDay day)
+    {
+        if (day.Date.HasValue && day.Events.Any())
+        {
+            selectedDate = day.Date;
+            selectedDayEvents = day.Events;
+        }
+    }
+    
+    private string GetEventTypeColor(CalendarEventType type) => eventTypeColors.GetValueOrDefault(type, "bg-muted");
+
+    private async Task DownloadIcs()
+    {
+        var icsContent = new StringBuilder();
+        icsContent.AppendLine("BEGIN:VCALENDAR");
+        // ... (ICS generation logic) ...
+        icsContent.AppendLine("END:VCALENDAR");
+
+        var fileName = "syllabus-calendar.ics";
+        var fileBytes = Encoding.UTF8.GetBytes(icsContent.ToString());
+
+        var fileStream = new MemoryStream(fileBytes);
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+        await JSRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+    
+    public class CalendarDay
+    {
+        public DateTime? Date { get; set; }
+        public bool IsToday { get; set; }
+        public List<CalendarEvent> Events { get; set; } = new();
+    }
+}

@@ -1,0 +1,139 @@
+﻿@page "/upload"
+@using System.ComponentModel.DataAnnotations
+@using SchedulEase.Models
+@using SchedulEase.Services
+@inject AppState AppState
+
+<div class="space-y-6">
+    @if (uploadedFile is null)
+    {
+        <GoogleCalendarConnect OnConnect="HandleCalendarConnect" />
+        <FileUpload OnFileUpload="HandleFileUpload" />
+    }
+    else
+    {
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <div class="bg-card p-4 rounded-lg border">
+                    <h3 class="font-semibold">@uploadedFile.Name</h3>
+                    <p class="text-sm text-muted-foreground">@((uploadedFile.Size / 1024.0 / 1024.0).ToString("F2")) MB</p>
+                    <button @onclick="HandleReset" class="mt-3 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90">
+                        Upload New
+                    </button>
+                </div>
+                
+                <ProcessingStatus IsProcessing="isProcessing" EventsCount="AppState.AllEvents.Count" />
+
+                @if (!string.IsNullOrEmpty(aiError))
+                {
+                    <div class="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                         <div class="flex items-start gap-3">
+                             <Icon Name="AlertCircle" Class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                             <div class="flex-1">
+                                 <h4 class="font-medium text-red-300 mb-1">AI Processing Failed</h4>
+                                 <p class="text-sm text-red-400 mb-3">@aiError</p>
+                                 <div class="flex gap-2">
+                                     <button @onclick="RetryAi" class="inline-flex items-center px-3 py-1 border border-border text-xs rounded-md bg-transparent hover:bg-accent">
+                                        <Icon Name="RefreshCw" Class="w-3 h-3 mr-1" />
+                                        Retry
+                                     </button>
+                                     <button @onclick="() => showManualEntry = true" class="inline-flex items-center px-3 py-1 border border-border text-xs rounded-md bg-transparent hover:bg-accent">
+                                        Manual Entry
+                                     </button>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+                }
+            </div>
+            <div>
+                @if (AppState.ExtractedEvents.Any())
+                {
+                    <AIExtractionResults Events="AppState.ExtractedEvents" OnEventsUpdate="HandleEventsUpdate" OnSendToCalendar="HandleSendToCalendar" />
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (showManualEntry)
+{
+    <ManualEventEntry OnClose="() => showManualEntry = false" OnAddEvent="HandleAddManualEvent" />
+}
+
+
+@code {
+    private IBrowserFile? uploadedFile;
+    private bool isProcessing = false;
+    private bool isCalendarConnected = false;
+    private string? aiError;
+    private bool showManualEntry = false;
+
+    private async Task HandleFileUpload(IBrowserFile file)
+    {
+        uploadedFile = file;
+        isProcessing = true;
+        aiError = null;
+        StateHasChanged();
+
+        // --- TODO: BACKEND INTEGRATION ---
+        // This is where you would send the file to your Python backend.
+        // using var content = new MultipartFormDataContent();
+        // using var fileContent = new StreamContent(file.OpenReadStream(file.Size));
+        // content.Add(fileContent, "file", file.Name);
+        // var response = await Http.PostAsync("your_python_api/upload", content);
+        // var extractedEvents = await response.Content.ReadFromJsonAsync<List<CalendarEvent>>();
+        
+        await Task.Delay(2500); // Simulate network latency
+
+        // Simulate a potential AI failure from the backend
+        if (new Random().NextDouble() < 0.15)
+        {
+            aiError = "AI unavailable. Please retry or enter events manually.";
+            isProcessing = false;
+            return;
+        }
+
+        // --- REMOVED SEEDED DATA ---
+        // The backend would return real data here. For now, we return an empty list.
+        var mockEvents = new List<CalendarEvent>(); // This list would be populated from your backend
+        
+        AppState.AddExtractedEvents(mockEvents);
+        isProcessing = false;
+    }
+
+    private void HandleCalendarConnect() => isCalendarConnected = true;
+
+    private void HandleReset()
+    {
+        uploadedFile = null;
+        AppState.Reset();
+        isProcessing = false;
+        aiError = null;
+        showManualEntry = false;
+    }
+
+    private void HandleAddManualEvent(CalendarEvent newEvent)
+    {
+        AppState.AddExtractedEvents(new List<CalendarEvent> { newEvent });
+    }
+
+    private void HandleEventsUpdate(List<CalendarEvent> updatedEvents)
+    {
+        AppState.UpdateExtractedEvents(updatedEvents);
+    }
+
+    private void HandleSendToCalendar(List<CalendarEvent> events)
+    {
+        // TODO: Integrate with Google Calendar API
+        Console.WriteLine($"Would send {events.Count} events to Google Calendar");
+    }
+
+    private async Task RetryAi()
+    {
+        if (uploadedFile is not null)
+        {
+            await HandleFileUpload(uploadedFile);
+        }
+    }
+}

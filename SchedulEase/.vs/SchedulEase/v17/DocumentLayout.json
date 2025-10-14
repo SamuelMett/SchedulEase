@@ -1,17 +1,69 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "D:\\Github\\SchedulEase\\SchedulEase\\",
+  "WorkspaceRootPath": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|d:\\github\\schedulease\\schedulease\\schedulease\\components\\app.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\services\\appstate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\services\\appstate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\app.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\app.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|d:\\github\\schedulease\\schedulease\\schedulease\\components\\pages\\home.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\pages\\home.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\fileupload.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\fileupload.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|d:\\github\\schedulease\\schedulease\\schedulease\\components\\layout\\navmenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\calendarpreview.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\calendarpreview.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\icons.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\icons.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\wwwroot\\js\\downloadhelpter.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\wwwroot\\js\\downloadhelpter.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\pages\\canvaspage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\pages\\canvaspage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\pages\\calendarpage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\pages\\calendarpage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\pages\\uploadpage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\pages\\uploadpage.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\wwwroot\\app.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\wwwroot\\app.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\pages\\index.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\pages\\index.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\schedulease.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\schedulease.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\shared\\mainlayout.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\shared\\mainlayout.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\models\\canvas.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\models\\canvas.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\models\\calendarevent.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\models\\calendarevent.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|c:\\users\\natha\\onedrive\\documents\\github\\schedulease\\schedulease\\schedulease\\components\\layout\\navmenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{BC7481C2-5485-453D-9A85-E6F4EC23F8FB}|SchedulEase\\SchedulEase.csproj|solutionrelative:schedulease\\components\\layout\\navmenu.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
@@ -22,46 +74,214 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "DownloadHelpter.js",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\wwwroot\\js\\DownloadHelpter.js",
+              "RelativeDocumentMoniker": "SchedulEase\\wwwroot\\js\\DownloadHelpter.js",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\wwwroot\\js\\DownloadHelpter.js",
+              "RelativeToolTip": "SchedulEase\\wwwroot\\js\\DownloadHelpter.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAQAAAAqAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-10-14T17:00:39.782Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Icons.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Icons.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\Icons.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Icons.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\Icons.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:57:35.634Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "CalendarPreview.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\CalendarPreview.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\CalendarPreview.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\CalendarPreview.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\CalendarPreview.razor",
+              "ViewState": "AgIAAE8AAAAAAAAAAAAiwLoAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:56:49.083Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "FileUpload.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\FileUpload.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\FileUpload.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\FileUpload.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\FileUpload.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:56:08.156Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "CanvasPage.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\CanvasPage.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\Pages\\CanvasPage.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\CanvasPage.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\Pages\\CanvasPage.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:54:59.95Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "CalendarPage.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\CalendarPage.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\Pages\\CalendarPage.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\CalendarPage.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\Pages\\CalendarPage.razor",
+              "ViewState": "AgIAAAsAAAAAAAAAAAAAACYAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:54:25.446Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "AppState.cs",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Services\\AppState.cs",
+              "RelativeDocumentMoniker": "SchedulEase\\Services\\AppState.cs",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Services\\AppState.cs",
+              "RelativeToolTip": "SchedulEase\\Services\\AppState.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-14T16:44:28.595Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "App.razor",
-              "DocumentMoniker": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\App.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\App.razor",
               "RelativeDocumentMoniker": "SchedulEase\\Components\\App.razor",
-              "ToolTip": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\App.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\App.razor",
               "RelativeToolTip": "SchedulEase\\Components\\App.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAA0AAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAHAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-10-13T01:48:02.066Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "Home.razor",
-              "DocumentMoniker": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\Home.razor",
-              "RelativeDocumentMoniker": "SchedulEase\\Components\\Pages\\Home.razor",
-              "ToolTip": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\Home.razor",
-              "RelativeToolTip": "SchedulEase\\Components\\Pages\\Home.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAKAAAAAAAAAA==",
+              "DocumentIndex": 8,
+              "Title": "UploadPage.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\UploadPage.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\Pages\\UploadPage.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\UploadPage.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\Pages\\UploadPage.razor",
+              "ViewState": "AgIAABsAAAAAAAAAAAAAACYAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-13T01:43:50.488Z",
+              "WhenOpened": "2025-10-14T16:52:55.382Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 10,
+              "Title": "Index.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\Index.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Components\\Pages\\Index.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Pages\\Index.razor",
+              "RelativeToolTip": "SchedulEase\\Components\\Pages\\Index.razor",
+              "ViewState": "AgIAACEAAAAAAAAAAAAAADoAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:52:16.162Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "MainLayout.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Shared\\MainLayout.razor",
+              "RelativeDocumentMoniker": "SchedulEase\\Shared\\MainLayout.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Shared\\MainLayout.razor",
+              "RelativeToolTip": "SchedulEase\\Shared\\MainLayout.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAGAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-14T16:51:45.385Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "Canvas.cs",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Models\\Canvas.cs",
+              "RelativeDocumentMoniker": "SchedulEase\\Models\\Canvas.cs",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Models\\Canvas.cs",
+              "RelativeToolTip": "SchedulEase\\Models\\Canvas.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-14T16:46:59.669Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
+              "Title": "CalendarEvent.cs",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Models\\CalendarEvent.cs",
+              "RelativeDocumentMoniker": "SchedulEase\\Models\\CalendarEvent.cs",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Models\\CalendarEvent.cs",
+              "RelativeToolTip": "SchedulEase\\Models\\CalendarEvent.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-14T16:46:13.986Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "SchedulEase",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\SchedulEase.csproj",
+              "RelativeDocumentMoniker": "SchedulEase\\SchedulEase.csproj",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\SchedulEase.csproj",
+              "RelativeToolTip": "SchedulEase\\SchedulEase.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-10-14T16:43:17.41Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "app.css",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\wwwroot\\app.css",
+              "RelativeDocumentMoniker": "SchedulEase\\wwwroot\\app.css",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\wwwroot\\app.css",
+              "RelativeToolTip": "SchedulEase\\wwwroot\\app.css",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAAABwAAAALAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2025-10-14T16:40:28.041Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
               "Title": "NavMenu.razor",
-              "DocumentMoniker": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Layout\\NavMenu.razor",
+              "DocumentMoniker": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Layout\\NavMenu.razor",
               "RelativeDocumentMoniker": "SchedulEase\\Components\\Layout\\NavMenu.razor",
-              "ToolTip": "D:\\Github\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Layout\\NavMenu.razor",
+              "ToolTip": "C:\\Users\\natha\\OneDrive\\Documents\\GitHub\\SchedulEase\\SchedulEase\\SchedulEase\\Components\\Layout\\NavMenu.razor",
               "RelativeToolTip": "SchedulEase\\Components\\Layout\\NavMenu.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-13T01:41:37.477Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-13T01:41:37.477Z"
             }
           ]
         }

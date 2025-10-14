@@ -1,0 +1,39 @@
+﻿@page "/calendar"
+@using SchedulEase.Models
+@using SchedulEase.Services
+@inject AppState AppState
+
+<div class="space-y-8">
+    <CalendarPreview Events="AppState.AllEvents" />
+
+    <div class="bg-card p-6 rounded-lg border">
+        <div class="space-y-6">
+            <div>
+                <h2 class="text-xl font-semibold mb-2">Add Events Manually</h2>
+                <p class="text-sm text-muted-foreground">
+                    Create calendar events manually or add missing items that weren't detected automatically.
+                </p>
+            </div>
+            <button @onclick="() => showManualEntry = true" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90">
+                <Icon Name="Plus" Class="w-4 h-4 mr-2" />
+                Create New Event
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (showManualEntry)
+{
+    <ManualEventEntry OnClose="() => showManualEntry = false" OnAddEvent="HandleAddManualEvent" />
+}
+
+@code {
+    private bool showManualEntry = false;
+
+    private void HandleAddManualEvent(CalendarEvent newEvent)
+    {
+        // For simplicity, manual adds from this page go to "Extracted"
+        AppState.AddExtractedEvents(new List<CalendarEvent> { newEvent });
+        showManualEntry = false;
+    }
+}
