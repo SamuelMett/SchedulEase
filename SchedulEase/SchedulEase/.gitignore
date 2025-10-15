@@ -1,12 +1,19 @@
-# Visual Studio
-.vs/
+# Node.js dependencies
+/node_modules
+
+# Generated CSS file from Tailwind
+/wwwroot/css/site.css
+
+# Standard Visual Studio and .NET ignores
+*.swp
 *.suo
 *.user
+*.userosscache
 *.sln.docstates
+*.userprefs
+/bin
+/obj
 
-# Build results
-[Bb]in/
-[Oo]bj/
-
-# Rider
-.idea/
+# OS-generated files
+.DS_Store
+Thumbs.db
