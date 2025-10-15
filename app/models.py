@@ -31,3 +31,7 @@ class FinalApiResponse(BaseModel):
     source_file_name: str
     summary: str
     scheduled_events: List[ScheduledEvent]
+
+class Course(BaseModel):
+    id: int
+    name: str
