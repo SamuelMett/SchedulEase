@@ -1,23 +1,28 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="min-h-screen bg-background text-foreground">
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    <header class="border-b border-border bg-card">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/" class="flex items-center gap-3">
+                <Icon Name="Calendar" Class="w-6 h-6 text-primary" />
+                <h1 class="text-xl font-bold">
+                    Schedul<span class="text-red-600">Ease</span>
+                </h1>
+            </a>
+
+            <nav class="flex gap-4 text-sm font-medium text-muted-foreground">
+                <NavLink href="/" Match="NavLinkMatch.All" class="hover:text-primary transition-colors">Home</NavLink>
+                <NavLink href="/canvas" class="hover:text-primary transition-colors">Canvas</NavLink>
+                <NavLink href="/upload" class="hover:text-primary transition-colors">Upload</NavLink>
+                <NavLink href="/calendar" class="hover:text-primary transition-colors">Calendar</NavLink>
+                <NavLink href="/chat" class="hover:text-primary transition-colors">AI Chat</NavLink>
+                <NavLink href="/settings" class="hover:text-primary transition-colors">Settings</NavLink>
+            </nav>
         </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="container mx-auto px-4 py-6">
+        @Body
     </main>
-</div>
-
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
 </div>
