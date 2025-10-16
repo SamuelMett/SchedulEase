@@ -4,6 +4,7 @@ load_dotenv() # reads env file
 
 import os
 import shutil
+from canvasapi import Canvas
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth
@@ -12,32 +13,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
 # --- Import custom modules and models ---
-from .models import AiAnalysisResult, FinalApiResponse, ScheduledEvent
+from .models import AiAnalysisResult, Course, FinalApiResponse, ScheduledEvent
 from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
 from .canvas_scheduler import schedule_event_in_canvas
-
-# --- Load Environment Variables ---
-CANVAS_API_URL = os.getenv("CANVAS_API_URL")
-CANVAS_API_KEY = os.getenv("CANVAS_API_KEY")
-
-if not all([CANVAS_API_URL, CANVAS_API_KEY, os.getenv("OPENAI_API_KEY")]):
-    raise ValueError("Missing required environment variables.")
+from .calendar_sync import get_canvas_ical_feed, add_calendar_subscription
 
 # --- Initialize FastAPI App ---
 app = FastAPI(title="AI Scheduling Assistant API")
 
-# CORS Middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5001", "https://localhost:7082"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Starlett Middleware
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY"),
+    https_only=False,
+)
 
 # OAuth 2.0
 oauth = OAuth()
@@ -48,28 +38,23 @@ oauth.register(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
+    client_kwargs={'scope': 'openid email profile https://www.googleapis.com/auth/calendar'},
+    access_type='offline',
+    prompt='consent'
 )
-
-# Canvas OAuth
-oauth.register(
-    name='canvas',
-    client_id=os.getenv("CANVAS_CLIENT_ID"),
-    client_secret=os.getenv("CANVAS_CLIENT_SECRET"),
-    access_token_url=f'{os.getenv("CANVAS_API_URL")}/login/oauth2/token',
-    authorize_url=f'{os.getenv("CANVAS_API_URL")}/login/oauth2/auth',
-    api_base_url=f'{os.getenv("CANVAS_API_URL")}/api/v1/',
-    client_kwargs={'scope': 'url:GET|/api/v1/users/:user_id/profile url:POST|/api/v1/calendar_events'} # Example scopes
-)
-
 
 # --- API Routes ---
 """Google"""
+# Test homepage
 @app.get('/')
 async def homepage(request: Request):
     user = request.session.get('user')
     if user:
-        return HTMLResponse(f'<h1>Hello, {user["name"]}!</h1><a href="/logout">Logout</a><br><a href="/connect/canvas">Connect to Canvas</a>')
+        return HTMLResponse(f'''
+            <h1>Hello, {user["name"]}!</h1>
+            <a href="/logout">Logout</a><br>
+            <a href="/sync-calendar" style="font-weight: bold; color: blue;">Sync Canvas Calendar to Google</a>
+        ''')
     return HTMLResponse('<h1>Welcome!</h1><a href="/login">Login with Google</a>')
 
 @app.get('/login')
@@ -79,42 +64,40 @@ async def login(request: Request):
 
 @app.get('/auth')
 async def auth(request: Request):
-    token = await oauth.google.authorize_access_token(request)
-    request.session['user'] = token.get('userinfo')
+    """
+    This is the callback route.
+    It fetches the access token and stores both user info and the token in the session.
+    """
+    try:
+        token = await oauth.google.authorize_access_token(request)
+
+        request.session['user'] = dict(token.get('userinfo'))
+        request.session['google_auth_token'] = dict(token)
+
+    except Exception as e:
+        return HTMLResponse(f"<h1>Login Failed: {e}</h1>")
+    
     return RedirectResponse(url='/')
+
+@app.get('/profile')
+async def profile(request: Request):
+    """A protected route that requires a valid session."""
+    user = request.session.get('user')
+    if not user:
+        return RedirectResponse(url='/')
+
+    return HTMLResponse(f"""
+        <h1>Welcome, {user.get('name')}!</h1>
+        <p>Email: {user.get('email')}</p>
+        <p>Profile Picture: <img src="{user.get('picture')}" alt="Profile Picture"></p>
+        <a href="/">Home</a> | <a href="/logout">Logout</a>
+    """)
 
 @app.get('/logout')
 async def logout(request: Request):
-    request.session.pop('user', None)
+    request.session.clear()
     return RedirectResponse(url='/')
 """-------"""
-
-""" Canvas """
-@app.get('/connect/canvas')
-async def connect_canvas(request: Request):
-    # Ensure user is logged in first
-    if not request.session.get('user'):
-        return RedirectResponse(url='/')
-    
-    redirect_uri = request.url_for('canvas_auth')
-    return await oauth.canvas.authorize_redirect(request, redirect_uri)
-
-@app.get('/canvas/auth')
-async def canvas_auth(request: Request):
-    token = await oauth.canvas.authorize_access_token(request)
-    
-    # Securely store the token (e.g., in a database) associated with the logged-in user.
-    # For this example, we'll just put it in the session.
-    request.session['canvas_token'] = token
-    print("Canvas Token Acquired:", token)
-    
-    # You can now use this token to make API calls
-    # Example: Fetching user profile from Canvas
-    resp = await oauth.canvas.get('users/self/profile', token=token)
-    profile = resp.json()
-    
-    return HTMLResponse(f"<h1>Canvas Connected!</h1><p>Canvas Name: {profile.get('name')}</p><a href='/'>Go Home</a>")
-"""-----"""
 
 """Upload File"""
 @app.post("/api/documents/schedule-from-file/", response_model=FinalApiResponse)
@@ -123,31 +106,27 @@ async def upload_and_schedule(
     file: UploadFile = File(...)
 ):
 
-    # 1. Save the uploaded file temporarily
     temp_file_path = f"temp_{file.filename}"
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        # 2. Extract text from the saved file
         print(f"Extracting text from {file.filename}...")
         document_text = extract_text_from_file(temp_file_path)
         if not document_text:
             raise HTTPException(status_code=400, detail="Could not extract text from file.")
 
-        # 3. Get structured data from OpenAI
         print("Sending text to AI for analysis...")
         ai_result: AiAnalysisResult = extract_analysis_from_text(document_text)
         if not ai_result or not ai_result.events:
             raise HTTPException(status_code=400, detail="AI could not identify any events in the document.")
 
-        # 4. Schedule events in Canvas
         print(f"Scheduling {len(ai_result.events)} events in Canvas for course {course_id}...")
         scheduled_events_list: List[ScheduledEvent] = []
         for event in ai_result.events:
             canvas_event = schedule_event_in_canvas(
-                api_url=CANVAS_API_URL,
-                api_key=CANVAS_API_KEY,
+                api_url=canvas_api_url,
+                api_key=canvas_api_key,
                 course_id=course_id,
                 event_data=event
             )
@@ -157,7 +136,6 @@ async def upload_and_schedule(
         if not scheduled_events_list:
             raise HTTPException(status_code=500, detail="Failed to schedule any events in Canvas.")
 
-        # 5. Build and return the final response
         return FinalApiResponse(
             source_file_name=file.filename,
             summary=ai_result.summary,
@@ -165,11 +143,62 @@ async def upload_and_schedule(
         )
 
     except Exception as e:
-        # Catch any other errors and report them
         raise HTTPException(status_code=500, detail=str(e))
 
     finally:
-        # 6. Clean up the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+
+@app.get('/sync-calendar')
+async def sync_calendar(request: Request):
+    google_token = request.session.get('google_auth_token')
+
+    if not google_token:
+        return RedirectResponse(url='/login')
+
+    try:
+        ical_url = get_canvas_ical_feed()
+
+        result = add_calendar_subscription(google_token, ical_url)
+
+        return HTMLResponse(
+            f"<h1>Success!</h1>"
+            f"<p>Your Google Calendar is now subscribed to your Canvas Calendar: '{result.get('summary')}'.</p>"
+            f"<p>It may take a few moments for events to appear.</p>"
+            f"<a href='/'>Go Home</a>"
+        )
+
+    except HTTPException as e:
+        if e.status_code == 401:
+            return RedirectResponse(url='/login')
+        return HTMLResponse(f"<h1>Error</h1><p>{e.detail}</p>", status_code=e.status_code)
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error</h1><p>{str(e)}</p>", status_code=500)
 """------"""
+
+"""Get Courses"""
+
+@app.get("/api/canvas/courses", response_model=List[Course])
+def get_user_courses(request: Request):
+    """
+    Fetches a list of the current user's courses from Canvas
+    using the personal API key from the .env file.
+    """
+    canvas_api_url = os.getenv("CANVAS_API_URL")
+    canvas_api_key = os.getenv("CANVAS_API_KEY")
+
+    if not canvas_api_url or not canvas_api_key:
+        raise HTTPException(status_code=500, detail="Canvas credentials not configured.")
+
+    try:
+        canvas = Canvas(canvas_api_url, canvas_api_key)
+
+        courses_list = canvas.get_courses(enrollment_state='active')
+
+        courses = [{"id": c.id, "name": c.name} for c in courses_list]
+        return courses
+
+    except Exception as e:
+        print(f"Error fetching Canvas courses: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch courses from Canvas.")
+    """-------"""
