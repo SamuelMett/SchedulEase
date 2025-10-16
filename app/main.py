@@ -16,6 +16,7 @@ from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
 from .models import ScheduledEvent, EventFromSelector
 from .google_scheduler import schedule_event_on_google_calendar
+from datetime import datetime, timezone
 
 # --- Initialize FastAPI App ---
 app = FastAPI(title="Google OAuth 2.0 Example")
@@ -129,20 +130,41 @@ async def calendar(request: Request):
         return RedirectResponse(url='/login')
 
     try:
+        # Get the first day of the current year.
+        current_year = datetime.now().year
+        start_of_year = datetime(current_year, 1, 1, tzinfo=timezone.utc)
+
+        time_min_param = start_of_year.isoformat()
+
+        params = {
+            "timeMin": time_min_param,
+            "orderBy": "startTime",  # Optional: Sorts events by start time
+            "singleEvents": True      # Optional: Expands recurring events
+        }
+
         resp = await oauth.google.get(
             'https://www.googleapis.com/calendar/v3/calendars/primary/events',
-            token=token
+            token=token,
+            params=params
         )
         resp.raise_for_status()
         events = resp.json()
         
         event_list = "<ul>"
         for event in events.get('items', []):
-            event_list += f"<li>{event.get('summary')} ({event.get('start', {}).get('dateTime', 'All day')})</li>"
+            start_info = event.get('start', {})
+            event_time = start_info.get('dateTime', start_info.get('date'))
+            
+            if 'T' in event_time:
+                display_time = datetime.fromisoformat(event_time).strftime('%b %d, %Y at %I:%M %p')
+            else:
+                display_time = datetime.fromisoformat(event_time).strftime('%b %d, %Y (All day)')
+            
+            event_list += f"<li>{event.get('summary')} ({display_time})</li>"
         event_list += "</ul>"
 
         return f"""
-            <h1>Your Upcoming Google Calendar Events</h1>
+            <h1>Your Google Calendar Events for {current_year}</h1>
             {event_list}
             <a href="/">Home</a>
         """
