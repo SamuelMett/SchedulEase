@@ -9,7 +9,6 @@ def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                # A more forceful system prompt to ensure tool use
                 {"role": "system", "content": "You are a highly intelligent data extraction assistant. Your sole purpose is to analyze the user's text and extract a summary and a list of calendar events. You MUST use the `extract_document_info` function to return the data in the required structured format."},
                 {"role": "user", "content": text}
             ],
@@ -31,7 +30,6 @@ def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
             result_data = json.loads(tool_call.function.arguments)
             return AiAnalysisResult(**result_data)
         else:
-            # The model did not use the tool, log its response for debugging
             print("--- AI did not use the tool. Response content: ---")
             print(response_message.content)
             print("-------------------------------------------------")

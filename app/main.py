@@ -19,7 +19,7 @@ from .google_scheduler import schedule_event_on_google_calendar
 from datetime import datetime, timezone
 
 # --- Initialize FastAPI App ---
-app = FastAPI(title="Google OAuth 2.0 Example")
+app = FastAPI(title="SchedulEase API")
 
 # --- Middleware ---
 app.add_middleware(
