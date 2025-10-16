@@ -19,6 +19,12 @@ class FinalApiResponse(BaseModel):
     summary: str
     scheduled_events: List[ScheduledEvent]
 
+class EventFromSelector(BaseModel):
+    """Represents a new event created with a date selector."""
+    title: str = Field(..., description="The title for the new event.")
+    selected_date: datetime.date = Field(..., description="The date chosen from the date selector.")
+    description: Optional[str] = Field(None, description="An optional description for the event.")
+
 class Course(BaseModel):
     id: int
     name: str

@@ -16,6 +16,10 @@ from .models import AiAnalysisResult
 from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
 from pathlib import Path
+from fastapi import Request, HTTPException
+from .models import ScheduledEvent
+from .google_scheduler import schedule_event_on_google_calendar
+from .models import ScheduledEvent, EventFromSelector
 
 # Load environment variables from .env file
 
@@ -48,7 +52,7 @@ oauth.register(
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
 client_kwargs={
-        'scope': 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
+        'scope': 'openid email profile https://www.googleapis.com/auth/calendar'
     },
     access_type='offline',
     prompt='consent' 
@@ -201,6 +205,43 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     # 3. Return the structured result
     print("Analysis complete. Returning structured data.")
     return analysis_result
+
+# app/main.py
+
+@app.post("/schedule-from-selector")
+async def schedule_event_from_selector(event_data: EventFromSelector, request: Request):
+    """
+    Creates a single all-day event on a specific date chosen from a date selector.
+    Requires an active login session.
+    """
+    # 1. Authenticate the user by checking the session token
+    token = request.session.get('token')
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated. Please log in first.")
+
+    # 2. Convert the incoming data into the format our scheduler function needs
+    #    An event on a single day has the same start and end date.
+    event_to_schedule = ScheduledEvent(
+        title=event_data.title,
+        start_date=event_data.selected_date.isoformat(), # Convert date object to "YYYY-MM-DD" string
+        end_date=event_data.selected_date.isoformat(),
+        description=event_data.description
+    )
+
+    # 3. Call the existing scheduler function to create the event on Google Calendar
+    success = await schedule_event_on_google_calendar(event_to_schedule, token, oauth)
+
+    # 4. Return a success or failure response
+    if success:
+        return {
+            "status": "success",
+            "message": f"Event '{event_to_schedule.title}' successfully scheduled for {event_to_schedule.start_date}."
+        }
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to schedule the event '{event_to_schedule.title}'."
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
