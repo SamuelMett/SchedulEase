@@ -2,30 +2,17 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import datetime
 
-# --- AI Extraction Model ---
-# This defines the structure we want the AI to fill for us.
-
-class PotentialEvent(BaseModel):
-    title: str = Field(..., description="A concise title for the calendar event.")
-    description: str = Field(..., description="A short description of the event, including the source text.")
-    start_datetime_utc: str = Field(..., description="The event's start time in ISO 8601 UTC format.")
-    end_datetime_utc: str = Field(..., description="The event's end time in ISO 8601 UTC format.")
-    is_all_day: bool = Field(..., description="True if the event does not have a specific time.")
+class ScheduledEvent(BaseModel):
+    """Represents a single calendar event extracted from the syllabus."""
+    title: str = Field(..., description="The title or name of the event (e.g., 'Midterm Exam').")
+    start_date: str = Field(..., description="The start date of the event in 'YYYY-MM-DD' format.")
+    end_date: Optional[str] = Field(None, description="The end date of the event in 'YYYY-MM-DD' format, if applicable.")
+    description: Optional[str] = Field(None, description="A brief description of the event.")
 
 class AiAnalysisResult(BaseModel):
-    summary: str = Field(..., description="A concise summary of the entire document's purpose.")
-    events: List[PotentialEvent] = Field(..., description="A list of all calendar events found in the document.")
-
-
-# --- API Response Models ---
-# These define the final JSON response from our API endpoint.
-
-class ScheduledEvent(BaseModel):
-    canvas_event_id: int
-    title: str
-    start_at: str
-    end_at: str
-    html_url: str
+    """The structured data extracted from the syllabus by the AI."""
+    summary: str = Field(..., description="A concise summary of the course syllabus.")
+    events: List[ScheduledEvent] = Field(..., description="A list of all scheduled events found in the syllabus.")
 
 class FinalApiResponse(BaseModel):
     source_file_name: str

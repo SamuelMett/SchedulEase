@@ -1,5 +1,3 @@
-# app/ai_processor.py
-
 import json
 from openai import OpenAI
 from .models import AiAnalysisResult
@@ -11,7 +9,8 @@ def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are an expert at extracting structured data. Analyze the text and provide a summary and a list of all calendar events mentioned."},
+                # A more forceful system prompt to ensure tool use
+                {"role": "system", "content": "You are a highly intelligent data extraction assistant. Your sole purpose is to analyze the user's text and extract a summary and a list of calendar events. You MUST use the `extract_document_info` function to return the data in the required structured format."},
                 {"role": "user", "content": text}
             ],
             tools=[{
@@ -24,9 +23,22 @@ def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
             }],
             tool_choice={"type": "function", "function": {"name": "extract_document_info"}}
         )
-        tool_call = response.choices[0].message.tool_calls[0]
-        result_data = json.loads(tool_call.function.arguments)
-        return AiAnalysisResult(**result_data)
+        
+        response_message = response.choices[0].message
+        
+        # --- THIS IS THE CRUCIAL FIX ---
+        # Check if the model actually decided to use the tool
+        if response_message.tool_calls:
+            tool_call = response_message.tool_calls[0]
+            result_data = json.loads(tool_call.function.arguments)
+            return AiAnalysisResult(**result_data)
+        else:
+            # The model did not use the tool, log its response for debugging
+            print("--- AI did not use the tool. Response content: ---")
+            print(response_message.content)
+            print("-------------------------------------------------")
+            return None
+
     except Exception as e:
-        print(f"Error calling OpenAI: {e}")
+        print(f"Error calling OpenAI or processing its response: {e}")
         return None

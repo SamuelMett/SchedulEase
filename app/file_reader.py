@@ -1,14 +1,37 @@
-# app/file_reader.py
-
-import docx
+import io
+from fastapi import UploadFile, HTTPException
 from pypdf import PdfReader
 
-def extract_text_from_file(file_path: str) -> str:
-    if file_path.endswith(".pdf"):
-        reader = PdfReader(file_path)
-        return "".join(page.extract_text() or "" for page in reader.pages)
-    elif file_path.endswith(".docx"):
-        doc = docx.Document(file_path)
-        return "\n".join(para.text for para in doc.paragraphs)
-    else:
-        raise ValueError("Unsupported file type. Please use PDF or DOCX.")
+async def extract_text_from_file(file: UploadFile) -> str:
+    """
+    Extracts text content from an uploaded file (currently supports PDF).
+    """
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=415, # Unsupported Media Type
+            detail="Unsupported file type. Please upload a PDF."
+        )
+
+    try:
+        # Read the file content into memory
+        file_bytes = await file.read()
+        pdf_stream = io.BytesIO(file_bytes)
+
+        # Use pypdf to read the text
+        reader = PdfReader(pdf_stream)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        
+        if not text:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract text from the PDF. The file might be empty or image-based."
+            )
+        return text
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while reading the PDF file: {e}"
+        )
