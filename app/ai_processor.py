@@ -2,7 +2,7 @@ import json
 from openai import OpenAI
 from .models import AiAnalysisResult
 
-client = OpenAI() # Assumes OPENAI_API_KEY is set in environment
+client = OpenAI()
 
 def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
     try:
@@ -26,8 +26,6 @@ def extract_analysis_from_text(text: str) -> AiAnalysisResult | None:
         
         response_message = response.choices[0].message
         
-        # --- THIS IS THE CRUCIAL FIX ---
-        # Check if the model actually decided to use the tool
         if response_message.tool_calls:
             tool_call = response_message.tool_calls[0]
             result_data = json.loads(tool_call.function.arguments)

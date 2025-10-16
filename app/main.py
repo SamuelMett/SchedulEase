@@ -1,39 +1,26 @@
 # app/main.py
 from dotenv import load_dotenv
-
+# load env file
 load_dotenv()
 
 import os
 import uvicorn
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 
-from fastapi import UploadFile, File, HTTPException
 from .models import AiAnalysisResult
 from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
-from pathlib import Path
-from fastapi import Request, HTTPException
-from .models import ScheduledEvent
-from .google_scheduler import schedule_event_on_google_calendar
 from .models import ScheduledEvent, EventFromSelector
-
-# Load environment variables from .env file
-
-# --- ADD THIS DEBUG LINE ---
-print(f"--- .env check --- OpenAI Key Found: {'OPENAI_API_KEY' in os.environ}")
-
-print(f"SECRET_KEY loaded: {os.getenv('SECRET_KEY') is not None}")
+from .google_scheduler import schedule_event_on_google_calendar
 
 # --- Initialize FastAPI App ---
 app = FastAPI(title="Google OAuth 2.0 Example")
 
 # --- Middleware ---
-# SessionMiddleware is required for Authlib's OAuth client to store temporary state
-# and the final user session.
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
@@ -42,7 +29,6 @@ app.add_middleware(
     https_only=False           # Set to True in production
 )
 
-# --- OAuth 2.0 Setup with Authlib ---
 oauth = OAuth()
 
 # Register the Google OAuth client
@@ -96,22 +82,12 @@ async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
         
-        # --- Start Debugging ---
-        print("----------- Google Token Received -----------")
-        print(token)
-        print("---------------------------------------------")
-        
     except Exception as e:
         # If there's an error, this will print it to your console
         print(f"Error during authorize_access_token: {e}")
         return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
     
     user_info = token.get('userinfo')
-    
-    # --- More Debugging ---
-    print("----------- User Info Extracted -----------")
-    print(user_info)
-    print("-------------------------------------------")
 
     if user_info:
         request.session['user'] = dict(user_info)
@@ -151,14 +127,6 @@ async def calendar(request: Request):
     token = request.session.get('token')
     if not token:
         return RedirectResponse(url='/login')
-
-    # --- START DEBUGGING ---
-    # This will print the raw token to your uvicorn terminal
-    access_token = token.get('access_token')
-    print("\n--- GOOGLE ACCESS TOKEN ---")
-    print(access_token)
-    print("---------------------------\n")
-    # --- END DEBUGGING ---
 
     try:
         resp = await oauth.google.get(
@@ -205,8 +173,6 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     # 3. Return the structured result
     print("Analysis complete. Returning structured data.")
     return analysis_result
-
-# app/main.py
 
 @app.post("/schedule-from-selector")
 async def schedule_event_from_selector(event_data: EventFromSelector, request: Request):
