@@ -1,0 +1,26 @@
+﻿@inherits LayoutComponentBase
+
+<div class="min-h-screen bg-background">
+    <header class="border-b border-border bg-card">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <Icon Name="Calendar" Class="w-6 h-6 text-primary" />
+                <h1 class="text-xl font-bold">
+                    Schedul<span class="text-red-600">Ease</span>
+                </h1>
+            </div>
+            <nav class="flex gap-4 text-sm">
+                <NavLink href="/">Home</NavLink>
+                <NavLink href="/canvas">Canvas</NavLink>
+                <NavLink href="/upload">Upload</NavLink>
+                <NavLink href="/calendar">Calendar</NavLink>
+                <NavLink href="/chat">AI Chat</NavLink>
+                <NavLink href="/settings">Settings</NavLink>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        @Body
+    </main>
+</div>

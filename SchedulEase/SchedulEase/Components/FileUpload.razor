@@ -1,0 +1,45 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+
+<div class="p-8 bg-card rounded-lg border">
+    <div class="@DropClass" @ondragenter="HandleDragEnter" @ondragleave="HandleDragLeave">
+        <InputFile OnChange="HandleFileSelected" class="hidden" id="file-upload" accept=".pdf,.doc,.docx,.txt,.rtf" />
+        <div class="flex flex-col items-center gap-4">
+            <div class="@(isDragOver ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground") p-4 rounded-full">
+                <Icon Name="Upload" Class="w-8 h-8" />
+            </div>
+            <div class="space-y-2">
+                <h3 class="font-semibold">Drop your syllabus here</h3>
+                <p class="text-sm text-muted-foreground">or click to browse files</p>
+            </div>
+            <label for="file-upload" class="cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90">
+                <Icon Name="FileText" Class="w-4 h-4 mr-2" />
+                Choose File
+            </label>
+        </div>
+    </div>
+    <div class="mt-4 text-xs text-muted-foreground">
+        <p>Supported formats: PDF, Word documents, plain text files</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<IBrowserFile> OnFileUpload { get; set; }
+
+    private bool isDragOver = false;
+    private string DropClass => isDragOver
+        ? "border-2 border-dashed rounded-lg p-8 text-center transition-colors border-primary bg-primary/5"
+        : "border-2 border-dashed rounded-lg p-8 text-center transition-colors border-border hover:border-primary/50";
+
+    private void HandleDragEnter() => isDragOver = true;
+    private void HandleDragLeave() => isDragOver = false;
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        isDragOver = false;
+        var file = e.File;
+        if (file != null)
+        {
+            await OnFileUpload.InvokeAsync(file);
+        }
+    }
+}

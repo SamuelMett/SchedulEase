@@ -1,0 +1,25 @@
+﻿@* File: Icon.razor *@
+
+<span class="@Class">
+    @switch (Name?.ToLower())
+    {
+        case "calendar":
+            <Calendar />
+            break;
+        case "filetext":
+            <FileText />
+            break;
+        case "bookopen":
+            <BookOpen />
+            break;
+        case "bot":
+            <Bot />
+            break;
+        // ... add cases for ALL your other icons
+    }
+</span>
+
+@code {
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

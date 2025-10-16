@@ -1,0 +1,91 @@
+﻿@page "/"
+
+<div class="space-y-16">
+    <section class="relative py-20 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-blue-50/30"></div>
+        <div class="relative max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-12 items-center">
+            <div class="space-y-8">
+                <div class="space-y-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary text-secondary-foreground">🚀 AI-Powered Academic Planning</span>
+                    <h1 class="text-4xl lg:text-5xl font-bold leading-tight">
+                        Transform Your <span class="text-blue-600"> Academic Life</span> with <span class="text-red-600"> SchedulEase</span>
+                    </h1>
+                    <p class="text-lg text-muted-foreground leading-relaxed">
+                        Never miss another deadline. Our AI automatically extracts assignments from syllabi and Canvas, creating a personalized study calendar that adapts to your schedule.
+                    </p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <a href="/upload" class="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-foreground bg-primary hover:bg-primary/90">
+                        <Icon Name="FileText" Class="w-5 h-5 mr-2" />
+                        Upload Syllabus
+                    </a>
+                    <a href="/canvas" class="inline-flex items-center justify-center px-8 py-3 border border-border text-base font-medium rounded-md bg-transparent hover:bg-accent hover:text-accent-foreground">
+                        <Icon Name="BookOpen" Class="w-5 h-5 mr-2" />
+                        Connect Canvas
+                    </a>
+                </div>
+            </div>
+
+            <div class="relative">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-2xl blur-3xl"></div>
+                <img src="https://images.unsplash.com/photo-1657040298726-7189d3090d5e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwc3R1ZHlpbmclMjBjYWxlbmRhciUyMHBsYW5uZXJ8ZW58MXx8fHwxNzU5MjQ1Mjg3fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+                     alt="Student planning with calendar"
+                     class="relative rounded-2xl shadow-2xl w-full max-w-lg mx-auto" />
+            </div>
+        </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4">
+        <div class="text-center space-y-4 mb-16">
+            <h2 class="text-3xl font-bold">Everything You Need to Stay Organized</h2>
+            <p class="text-lg text-muted-foreground max-w-2xl mx-auto">
+                From AI-powered syllabus parsing to intelligent study recommendations, SchedulEase has all the tools to keep you on track.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+
+            <div class="p-6 text-center transition-shadow border-0 bg-card rounded-lg">
+                <div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Icon Name="FileText" Class="w-6 h-6 text-white" />
+                </div>
+                <h3 class="font-semibold mb-2">Smart Syllabus Parsing</h3>
+                <p class="text-sm text-muted-foreground">
+                    AI automatically extracts assignments, exams, and deadlines from any syllabus format.
+                </p>
+            </div>
+
+            <div class="p-6 text-center transition-shadow border-0 bg-card rounded-lg">
+                <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Icon Name="BookOpen" Class="w-6 h-6 text-white" />
+                </div>
+                <h3 class="font-semibold mb-2">Canvas Integration</h3>
+                <p class="text-sm text-muted-foreground">
+                    Seamlessly sync with Canvas LMS to import all your course assignments automatically.
+                </p>
+            </div>
+
+            <div class="p-6 text-center transition-shadow border-0 bg-card rounded-lg">
+                <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Icon Name="Calendar" Class="w-6 h-6 text-white" />
+                </div>
+                <h3 class="font-semibold mb-2">Smart Calendar Sync</h3>
+                <p class="text-sm text-muted-foreground">
+                    Export to Google Calendar with intelligent scheduling and deadline reminders.
+                </p>
+            </div>
+
+            <div class="p-6 text-center transition-shadow border-0 bg-card rounded-lg">
+                <div class="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Icon Name="Bot" Class="w-6 h-6 text-white" />
+                </div>
+                <h3 class="font-semibold mb-2">AI Study Assistant</h3>
+                <p class="text-sm text-muted-foreground">
+                    Get personalized study plans, flashcards, and homework help from our AI tutor.
+                </p>
+            </div>
+
+        </div>
+    </section>
+</div>
