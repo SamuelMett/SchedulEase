@@ -1,3 +1,6 @@
+# ===================================================================
+# Standard Python .gitignore
+# ===================================================================
 # Environment Variables
 .env
 
@@ -7,3 +10,48 @@ venv/
 
 /extras
 .DS_Store
+# ===================================================================
+
+# ===================================================================
+# Standard Visual Studio/ .NET ignores (from template)
+# ===================================================================
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+[Bb]in/
+[Oo]bj/
+*.VC.db
+*.VC.VC.opendb
+*.DotSettings.user
+*.vshost.exe
+packages/
+project.lock.json
+project.assets.json
+TestResults/
+*.trx
+*.log
+*.zip
+
+# ===================================================================
+# Your Project-Specific & OS Additions
+# ===================================================================
+
+# Node.js
+/node_modules
+
+# Generated CSS
+/wwwroot/css/site.css
+
+# Other Editors
+*.swp
+*.userprefs
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+*.vsidx
+.vs/SchedulEase/v17/DocumentLayout.json
+.vs/SchedulEase/v17/DocumentLayout.json
+SchedulEase.sln
