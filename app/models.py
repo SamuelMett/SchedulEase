@@ -1,6 +1,41 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AnyUrl
 from typing import List, Optional
-import datetime
+from datetime import datetime, date
+
+class CalendarEvent(BaseModel):
+    """
+    Model for creating or updating a Google Calendar event.
+    """
+    title: str
+    start: datetime  # FastAPI will parse ISO 8601 strings
+    end: datetime
+    description: Optional[str] = None
+    
+    # This helper function will convert our simple model
+    # into the format Google's API expects.
+    def to_google_format(self):
+        return {
+            'summary': self.title,
+            'description': self.description,
+            'start': {
+                'dateTime': self.start.isoformat(),
+                'timeZone': 'UTC', # Or derive this from the datetime
+            },
+            'end': {
+                'dateTime': self.end.isoformat(),
+                'timeZone': 'UTC', # Or derive this from the datetime
+            },
+        }
+
+class EventFromGoogle(BaseModel):
+    """
+    Model to parse and return the simple event format
+    that frontend calendars love (e.g., FullCalendar).
+    """
+    id: str
+    title: str
+    start: str  # Send as ISO string
+    end: str    # Send as ISO string
 
 class ScheduledEvent(BaseModel):
     """Represents a single calendar event extracted from the syllabus."""
@@ -22,9 +57,28 @@ class FinalApiResponse(BaseModel):
 class EventFromSelector(BaseModel):
     """Represents a new event created with a date selector."""
     title: str = Field(..., description="The title for the new event.")
-    selected_date: datetime.date = Field(..., description="The date chosen from the date selector.")
+    selected_date: date = Field(..., description="The date chosen from the date selector.")
     description: Optional[str] = Field(None, description="An optional description for the event.")
 
 class Course(BaseModel):
     id: int
     name: str
+
+class CalendarSubscription(BaseModel):
+    """Model for subscribing to an external .ics calendar url."""
+    url: AnyUrl = Field(..., description="The full URL of the .ics calendar to subscribe to.")
+
+class CalendarEvent(BaseModel):
+    """Model for creating or updating a Google Calendar event."""
+    title: str
+    start: datetime
+    end: datetime
+    description: Optional[str] = None
+    
+    def to_google_format(self):
+        return {
+            'summary': self.title,
+            'description': self.description,
+            'start': {'dateTime': self.start.isoformat(), 'timeZone': 'UTC'},
+            'end': {'dateTime': self.end.isoformat(), 'timeZone': 'UTC'},
+        }

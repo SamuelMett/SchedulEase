@@ -1,4 +1,5 @@
 # app/main.py
+from app import calendar_api
 from dotenv import load_dotenv
 # load env file
 load_dotenv()
@@ -10,12 +11,16 @@ from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
+from typing import List
+
+from fastapi.responses import JSONResponse
+from datetime import datetime, timezone, date
 
 from .models import AiAnalysisResult
 from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
 from .models import ScheduledEvent, EventFromSelector
-from .google_scheduler import schedule_event_on_google_calendar
+from .google_scheduler import schedule_event_on_google_calendar, schedule_multiple_events
 from datetime import datetime, timezone
 
 # --- Initialize FastAPI App ---
@@ -31,6 +36,7 @@ app.add_middleware(
 )
 
 oauth = OAuth()
+app.state.oauth = oauth
 
 # Register the Google OAuth client
 oauth.register(
@@ -42,10 +48,11 @@ client_kwargs={
         'scope': 'openid email profile https://www.googleapis.com/auth/calendar'
     },
     access_type='offline',
-    prompt='consent' 
+    prompt='consent'
 )
 
 # --- API Routes ---
+app.include_router(calendar_api.router)
 
 @app.get('/', response_class=HTMLResponse)
 async def homepage(request: Request):
@@ -60,7 +67,7 @@ async def homepage(request: Request):
             <h1>Hello, {name}!</h1>
             <p>You are logged in.</p>
             <a href="/profile">View Profile</a><br>
-            <a href="/calendar">View Your Google Calendar Events</a><br>
+            <a href="/calendar/events">View Your Google Calendar Events</a><br>
             <a href="/logout">Logout</a>
         '''
     return '<h1>Welcome!</h1><a href="/login">Login with Google</a>'
@@ -123,23 +130,22 @@ async def profile(request: Request):
         <a href="/">Home</a>
     """
 
-@app.get('/calendar', response_class=HTMLResponse)
-async def calendar(request: Request):
+@app.get('/calendar/events')
+async def calendar_events(request: Request):
     token = request.session.get('token')
     if not token:
-        return RedirectResponse(url='/login')
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
         # Get the first day of the current year.
         current_year = datetime.now().year
         start_of_year = datetime(current_year, 1, 1, tzinfo=timezone.utc)
-
         time_min_param = start_of_year.isoformat()
 
         params = {
             "timeMin": time_min_param,
-            "orderBy": "startTime",  # Optional: Sorts events by start time
-            "singleEvents": True      # Optional: Expands recurring events
+            "orderBy": "startTime",
+            "singleEvents": True
         }
 
         resp = await oauth.google.get(
@@ -148,30 +154,28 @@ async def calendar(request: Request):
             params=params
         )
         resp.raise_for_status()
-        events = resp.json()
+        data = resp.json()
         
-        event_list = "<ul>"
-        for event in events.get('items', []):
+        # Convert events to JSON suitable for frontend calendar
+        events = []
+        for event in data.get('items', []):
             start_info = event.get('start', {})
-            event_time = start_info.get('dateTime', start_info.get('date'))
-            
-            if 'T' in event_time:
-                display_time = datetime.fromisoformat(event_time).strftime('%b %d, %Y at %I:%M %p')
-            else:
-                display_time = datetime.fromisoformat(event_time).strftime('%b %d, %Y (All day)')
-            
-            event_list += f"<li>{event.get('summary')} ({display_time})</li>"
-        event_list += "</ul>"
+            end_info = event.get('end', {})
 
-        return f"""
-            <h1>Your Google Calendar Events for {current_year}</h1>
-            {event_list}
-            <a href="/">Home</a>
-        """
+            start_time = start_info.get('dateTime', start_info.get('date'))
+            end_time = end_info.get('dateTime', end_info.get('date'))
+
+            events.append({
+                "title": event.get('summary', 'No Title'),
+                "start": start_time,
+                "end": end_time
+            })
+
+        return JSONResponse(content=events)
 
     except Exception as e:
-        return HTMLResponse(f"<h1>Could not fetch calendar events: {e}</h1>")
-    
+        raise HTTPException(status_code=500, detail=f"Could not fetch calendar events: {e}")
+
 @app.post("/upload-syllabus", response_model=AiAnalysisResult)
 async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     """
@@ -184,7 +188,12 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
 
     # 2. Send the text to the AI for analysis
     print("Sending extracted text to AI for analysis...")
-    analysis_result = extract_analysis_from_text(syllabus_text)
+    
+    # --- THIS IS THE CHANGE ---
+    # Get the current date and pass it as context
+    today = date.today()
+    analysis_result = await extract_analysis_from_text(syllabus_text, today)
+    # --- END OF CHANGE ---
 
     if not analysis_result:
         raise HTTPException(
@@ -195,41 +204,6 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     # 3. Return the structured result
     print("Analysis complete. Returning structured data.")
     return analysis_result
-
-@app.post("/schedule-from-selector")
-async def schedule_event_from_selector(event_data: EventFromSelector, request: Request):
-    """
-    Creates a single all-day event on a specific date chosen from a date selector.
-    Requires an active login session.
-    """
-    # 1. Authenticate the user by checking the session token
-    token = request.session.get('token')
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated. Please log in first.")
-
-    # 2. Convert the incoming data into the format our scheduler function needs
-    #    An event on a single day has the same start and end date.
-    event_to_schedule = ScheduledEvent(
-        title=event_data.title,
-        start_date=event_data.selected_date.isoformat(), # Convert date object to "YYYY-MM-DD" string
-        end_date=event_data.selected_date.isoformat(),
-        description=event_data.description
-    )
-
-    # 3. Call the existing scheduler function to create the event on Google Calendar
-    success = await schedule_event_on_google_calendar(event_to_schedule, token, oauth)
-
-    # 4. Return a success or failure response
-    if success:
-        return {
-            "status": "success",
-            "message": f"Event '{event_to_schedule.title}' successfully scheduled for {event_to_schedule.start_date}."
-        }
-    else:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to schedule the event '{event_to_schedule.title}'."
-        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

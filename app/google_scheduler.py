@@ -1,6 +1,7 @@
 import httpx
 from datetime import date, timedelta
 from authlib.integrations.starlette_client import OAuth
+import asyncio
 
 from .models import ScheduledEvent
 
@@ -53,3 +54,22 @@ async def schedule_event_on_google_calendar(
     except Exception as e:
         print(f"❌ An unexpected error occurred while scheduling '{event.title}': {e}")
         return False
+    
+async def schedule_multiple_events(events: list[ScheduledEvent], token: dict, oauth: OAuth) -> dict:
+    """
+    Schedule multiple events concurrently using asyncio.
+    Returns a dict with 'success' and 'failed' lists.
+    """
+    results = {"success": [], "failed": []}
+
+    # Run all scheduling tasks in parallel
+    tasks = [schedule_event_on_google_calendar(event, token, oauth) for event in events]
+    task_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for event, result in zip(events, task_results):
+        if isinstance(result, bool) and result:
+            results["success"].append(event.title)
+        else:
+            results["failed"].append(event.title)
+
+    return results
