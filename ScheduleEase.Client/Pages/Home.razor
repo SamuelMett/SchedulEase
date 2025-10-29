@@ -1,7 +1,43 @@
 ﻿@page "/"
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
 
-<PageTitle>Home</PageTitle>
+<RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" class="hero-section">
 
-<h1>Hello, world!</h1>
+    <RadzenHeading Text="Seamless Scheduling, Effortless Learning" Size="H1" class="hero-title" />
 
-Welcome to your new app.
+    <RadzenText Text="Upload your syllabus, and let us handle the rest. Get all your important dates in Google Calendar instantly."
+                TextStyle="TextStyle.H5" class="hero-subtitle" />
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" class="rz-mt-4">
+
+        <RadzenButton Text="Import Syllabus"
+                      Icon="upload"
+                      Size="ButtonSize.Large"
+                      ButtonStyle="ButtonStyle.Primary"
+                      Click="OnImportSyllabusClick" />
+
+        <RadzenButton Text="Connect Google Account"
+                      Icon="login"
+                      Size="ButtonSize.Large"
+                      ButtonStyle="ButtonStyle.Secondary"
+                      Click="OnConnectClick" />
+
+    </RadzenStack>
+
+</RadzenStack>
+
+@code {
+    void OnConnectClick()
+    {
+        // This does the same thing as the layout button
+        NavigationManager.NavigateTo("http://127.0.0.1:8000/login", forceLoad: true);
+    }
+
+    async Task OnImportSyllabusClick()
+    {
+        // We will create this page next.
+        // For now, it just navigates.
+        NavigationManager.NavigateTo("/import");
+    }
+}

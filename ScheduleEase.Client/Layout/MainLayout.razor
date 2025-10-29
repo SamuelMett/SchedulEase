@@ -1,16 +1,38 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inject NavigationManager NavigationManager
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<RadzenLayout>
+    <RadzenHeader class="main-header">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-px-4">
 
-        <article class="content px-4">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2rem">
+                <RadzenText Text="ScheduleEase" TextStyle="TextStyle.H5" class="brand-title" />
+                <RadzenLink Text="Home" Path="/" class="nav-link" />
+                <RadzenLink Text="Calendar" Path="/calendar" class="nav-link" />
+                <RadzenLink Text="Import" Path="/import" class="nav-link" />
+            </RadzenStack>
+
+            <RadzenButton Text="Connect Google Account"
+                          Icon="login"
+                          ButtonStyle="ButtonStyle.Primary"
+                          Click="OnConnectClick" />
+        </RadzenStack>
+    </RadzenHeader>
+
+    <RadzenBody>
+        <div class="main-content">
             @Body
-        </article>
-    </main>
-</div>
+        </div>
+    </RadzenBody>
+
+</RadzenLayout>
+
+@code {
+    void OnConnectClick()
+    {
+        // This button navigates the user's browser (full page)
+        // to the backend's login route. The backend will then redirect
+        // to Google, and Google will redirect back to this app.
+        NavigationManager.NavigateTo("http://127.0.0.1:8000/login", forceLoad: true);
+    }
+}
