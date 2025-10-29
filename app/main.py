@@ -9,6 +9,11 @@ import uvicorn
 
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+# CORS middle ware 
+from fastapi.middleware.cors import CORSMiddleware
+
+
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from typing import List
@@ -25,6 +30,20 @@ from datetime import datetime, timezone
 
 # --- Initialize FastAPI App ---
 app = FastAPI(title="SchedulEase API")
+
+
+# This is the URL your C# Radzen app will be running on.
+# Update this if your C# app runs on a different port.
+CLIENT_ORIGIN = "http://localhost:5001" 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[CLIENT_ORIGIN],  # Allow your C# app's origin
+    allow_credentials=True,         # THIS IS THE KEY: It allows cookies
+    allow_methods=["*"],            # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],            # Allow all headers
+)
+
 
 # --- Middleware ---
 app.add_middleware(
