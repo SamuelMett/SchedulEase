@@ -1,27 +1,22 @@
-# ===================================================================
-# Standard Python .gitignore
-# ===================================================================
-# Environment Variables
+# =============================================================
+# Python
+# =============================================================
 .env
-
-# Python Cache
 __pycache__/
 venv/
+extras/
 
-/extras
-.DS_Store
-# ===================================================================
-
-# ===================================================================
-# Standard Visual Studio/ .NET ignores (from template)
-# ===================================================================
+# =============================================================
+# Visual Studio / .NET
+# =============================================================
+.vs/
+.vscode/
+[Bb]in/
+[Oo]bj/
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
-.vs/
-[Bb]in/
-[Oo]bj/
 *.VC.db
 *.VC.VC.opendb
 *.DotSettings.user
@@ -33,25 +28,25 @@ TestResults/
 *.trx
 *.log
 *.zip
+*.vsidx
+*.v9.bin
+*.v2
 
-# ===================================================================
-# Your Project-Specific & OS Additions
-# ===================================================================
-
+# =============================================================
 # Node.js
-/node_modules
+# =============================================================
+node_modules/
 
-# Generated CSS
-/wwwroot/css/site.css
-
-# Other Editors
+# =============================================================
+# Other Editors / OS
+# =============================================================
 *.swp
 *.userprefs
-
-# OS-generated files
 .DS_Store
 Thumbs.db
-*.vsidx
-.vs/SchedulEase/v17/DocumentLayout.json
-.vs/SchedulEase/v17/DocumentLayout.json
-SchedulEase.sln
+
+# =============================================================
+# Project-specific
+# =============================================================
+# /wwwroot/css/site.css   # uncomment only if generated automatically
+
