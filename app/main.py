@@ -121,7 +121,7 @@ async def auth(request: Request):
     
     request.session['token'] = token
 
-    return RedirectResponse(url='/')
+return RedirectResponse(url=CLIENT_ORIGIN)
 
 @app.get('/logout')
 async def logout(request: Request):
