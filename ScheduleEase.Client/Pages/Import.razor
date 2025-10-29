@@ -1,0 +1,186 @@
+﻿@page "/import"
+@using ScheduleEase.Client.Models
+@using System.Text.Json
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+@inject NotificationService NotificationService
+
+<RadzenText TextStyle="TextStyle.H2">Import Your Schedule</RadzenText>
+<RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">
+    Upload your course syllabus (PDF) and let our AI extract the key dates for you.
+</RadzenText>
+
+@if (aiResult == null)
+{
+    <RadzenCard class="upload-card">
+        <RadzenText TextStyle="TextStyle.H5">Upload Syllabus</RadzenText>
+        <RadzenUpload
+            Url="http://127.0.0.1:8000/upload-syllabus"
+            Accept=".pdf"
+            Auto="true"
+            WithCredentials="true"
+            Complete="OnUploadComplete"
+            Error="OnUploadError"
+            Progress="OnUploadProgress"
+            class="rz-mt-2">
+            <Template>
+                <RadzenStack Gap="1rem" AlignItems="AlignItems.Center">
+                    <RadzenIcon Icon="upload_file" class="upload-icon" />
+                    <RadzenText Text="Drop PDF file here or click to browse" TextStyle="TextStyle.Subtitle1" />
+                    <RadzenText Text="Max file size: 10 MB" TextStyle="TextStyle.Caption" />
+                </RadzenStack>
+            </Template>
+        </RadzenUpload>
+
+        @if (isUploading)
+        {
+            <RadzenProgressBar Value="uploadProgress" ShowValue="true" class="rz-mt-4" />
+            <RadzenText Text="@uploadStatus" TextStyle="TextStyle.Body2" class="rz-mt-2" />
+        }
+    </RadzenCard>
+}
+
+@if (aiResult != null && !isFinished)
+{
+    <RadzenCard class="confirmation-card">
+        <RadzenText TextStyle="TextStyle.H5">AI Analysis Complete</RadzenText>
+        <RadzenText TextStyle="TextStyle.Subtitle1">Summary: @aiResult.Summary</RadzenText>
+        
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4">Confirm Events to Add</RadzenText>
+        <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-2">We found @aiResult.Events.Count event(s). Select the ones you want to add to your Google Calendar.</RadzenText>
+
+        <RadzenDataList Data="@aiResult.Events" TItem="ScheduledEvent" class="event-list">
+            <Template Context="evt">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="selectedEvents[evt]" />
+                    <RadzenStack Gap="0">
+                        <RadzenText TextStyle="TextStyle.Subtitle1">@evt.Title</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption">
+                            @evt.StartDate @(evt.EndDate != null ? $" to {evt.EndDate}" : "")
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+            </Template>
+        </RadzenDataList>
+
+        <RadzenButton 
+            Text="Add Selected Events to Calendar" 
+            Icon="add_task" 
+            ButtonStyle="ButtonStyle.Primary" 
+            IsBusy="isSubmitting"
+            Click="OnConfirmAndAddEvents"
+            class="rz-mt-4" />
+    </RadzenCard>
+}
+
+@if (isFinished)
+{
+    <RadzenAlert Title="Success!" AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter">
+        Successfully added @successCount event(s) to your Google Calendar.
+    </RadzenAlert>
+}
+
+@code {
+    private AiAnalysisResult? aiResult;
+    private bool isUploading = false;
+    private bool isSubmitting = false;
+    private bool isFinished = false;
+    private int uploadProgress = 0;
+    private string uploadStatus = "";
+    private int successCount = 0;
+
+    // This dictionary will track which events are checked
+    private Dictionary<ScheduledEvent, bool> selectedEvents = new();
+
+    private void OnUploadProgress(UploadProgressArgs args)
+    {
+        isUploading = true;
+        uploadProgress = args.Progress;
+        uploadStatus = $"Uploading {args.Files.First().Name}...";
+        if (args.Progress == 100)
+        {
+            uploadStatus = "Upload complete. Waiting for AI analysis...";
+        }
+    }
+
+    private void OnUploadComplete(UploadCompleteEventArgs args)
+    {
+        isUploading = false;
+        uploadProgress = 0;
+
+        try
+        {
+            // Deserialize the JSON response from the backend
+            aiResult = JsonSerializer.Deserialize<AiAnalysisResult>(
+                args.RawResponse,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (aiResult != null)
+            {
+                // Initialize the dictionary with all events selected by default
+                selectedEvents = aiResult.Events.ToDictionary(evt => evt, evt => true);
+                NotificationService.Notify(NotificationSeverity.Success, "Analysis Complete", "Please review the events found by the AI.");
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", "Failed to parse AI response.");
+            Console.WriteLine($"Error deserializing response: {ex.Message}");
+        }
+    }
+
+    private void OnUploadError(UploadErrorEventArgs args)
+    {
+        isUploading = false;
+        NotificationService.Notify(NotificationSeverity.Error, "Upload Failed", args.Message);
+    }
+
+    private async Task OnConfirmAndAddEvents()
+    {
+        isSubmitting = true;
+        successCount = 0;
+
+        var eventsToAdd = selectedEvents.Where(kvp => kvp.Value == true).Select(kvp => kvp.Key);
+
+        foreach (var evt in eventsToAdd)
+        {
+            try
+            {
+                // Convert the AI's ScheduledEvent to a CalendarEventCreate
+                // The AI returns "YYYY-MM-DD", but the API needs a full DateTime.
+                var startDt = DateTime.Parse(evt.StartDate).ToUniversalTime();
+                var endDt = DateTime.Parse(evt.EndDate ?? evt.StartDate).AddDays(1).ToUniversalTime(); // Google is exclusive on end date
+
+                var newEvent = new CalendarEventCreate
+                {
+                    Title = evt.Title,
+                    Description = evt.Description,
+                    Start = startDt,
+                    End = endDt
+                };
+
+                // Call the POST endpoint from your calendar_api.py
+                var response = await Http.PostAsJsonAsync("/api/calendar/events", newEvent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    successCount++;
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Warning, "Failed to add event", evt.Title);
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error adding event", evt.Title);
+                Console.WriteLine($"Error processing event {evt.Title}: {ex.Message}");
+            }
+        }
+
+        isSubmitting = false;
+        isFinished = true;
+    }
+}

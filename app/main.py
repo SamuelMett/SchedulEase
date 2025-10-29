@@ -34,7 +34,7 @@ app = FastAPI(title="SchedulEase API")
 
 # This is the URL your C# Radzen app will be running on.
 # Update this if your C# app runs on a different port.
-CLIENT_ORIGIN = "http://localhost:5001" 
+CLIENT_ORIGIN = "https://localhost:7070"
 
 app.add_middleware(
     CORSMiddleware,
