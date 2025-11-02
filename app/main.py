@@ -4,16 +4,13 @@ from dotenv import load_dotenv
 # load env file
 load_dotenv()
 
+from fastapi.middleware.cors import CORSMiddleware
+
 import os
 import uvicorn
 
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
-
-# CORS middle ware 
-from fastapi.middleware.cors import CORSMiddleware
-
-
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from typing import List
@@ -32,17 +29,18 @@ from datetime import datetime, timezone
 app = FastAPI(title="SchedulEase API")
 
 
-# This is the URL your C# Radzen app will be running on.
-# Update this if your C# app runs on a different port.
-CLIENT_ORIGIN = "https://localhost:7070"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CLIENT_ORIGIN],  # Allow your C# app's origin
-    allow_credentials=True,         # THIS IS THE KEY: It allows cookies
-    allow_methods=["*"],            # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],            # Allow all headers
+    allow_origins=[
+        "http://localhost:7070",  # Example: default Blazor port
+        # Add the specific URL your Radzen app runs on
+    ],
+    allow_credentials=True,  # <-- This is ESSENTIAL for cookies
+    allow_methods=["*"],     # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],     # Allow all headers
 )
+
 
 
 # --- Middleware ---
@@ -121,7 +119,7 @@ async def auth(request: Request):
     
     request.session['token'] = token
 
-return RedirectResponse(url=CLIENT_ORIGIN)
+    return RedirectResponse(url='/')
 
 @app.get('/logout')
 async def logout(request: Request):

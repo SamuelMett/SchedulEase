@@ -1,12 +1,15 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace ScheduleEase.Client.Models;
-
-public class AiAnalysisResult
+namespace ScheduleEase.Client.Models
 {
-    [JsonPropertyName("summary")]
-    public string Summary { get; set; }
+    public class AiAnalysisResult
+    {
+        // Corresponds to aiResult.Summary
+        [JsonPropertyName("summary")]
+        public string Summary { get; set; }
 
-    [JsonPropertyName("events")]
-    public List<ScheduledEvent> Events { get; set; }
+        // Corresponds to aiResult.Events
+        [JsonPropertyName("events")]
+        public List<ScheduledEvent> Events { get; set; }
+    }
 }
