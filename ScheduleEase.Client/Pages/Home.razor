@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
+@inject IJSRuntime JSRuntime
 
 <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" class="hero-section">
 
@@ -28,16 +29,16 @@
 </RadzenStack>
 
 @code {
-    void OnConnectClick()
+    private string backendBaseUrl = "http://127.0.0.1:8000";
+
+    async Task OnConnectClick()
     {
-        // This does the same thing as the layout button
-        NavigationManager.NavigateTo("http://127.0.0.1:8000/login", forceLoad: true);
+        var loginUrl = $"{backendBaseUrl}/login";
+        await JSRuntime.InvokeVoidAsync("open", loginUrl, "_blank");
     }
 
     async Task OnImportSyllabusClick()
     {
-        // We will create this page next.
-        // For now, it just navigates.
         NavigationManager.NavigateTo("/import");
     }
 }

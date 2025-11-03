@@ -1,0 +1,41 @@
+﻿/* Hero section styling */
+.hero-container {
+    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    min-height: 100vh;
+    color: white;
+}
+
+.hero-card {
+    background: white;
+    color: #1e293b;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-weight: 700;
+    color: #1e3a8a;
+}
+
+.hero-subtitle {
+    color: #334155;
+}
+
+/* Feature cards */
+.feature-card {
+    background: #f9fafb;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease;
+    width: 16rem;
+}
+
+    .feature-card:hover {
+        transform: translateY(-4px);
+    }
+
+.rz-text-primary {
+    color: #2563eb !important;
+}
