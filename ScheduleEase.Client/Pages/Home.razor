@@ -1,6 +1,5 @@
 ﻿@page "/"
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
+
 
 <!-- Hero Section -->
 <div class="full-width-section hero-bg">
@@ -108,22 +107,24 @@
 </div>
 
 @code {
-    void OnConnectClick()
+    [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    async Task OnConnectClick()
     {
-        // This does the same thing as the layout button
-        NavigationManager.NavigateTo("http://127.0.0.1:8000/login", forceLoad: true);
+        // Opens Google login in a new tab
+        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:8000/login");
     }
 
     async Task OnImportSyllabusClick()
     {
-        // We will create this page next.
-        // For now, it just navigates.
+        // Navigate within Blazor
         NavigationManager.NavigateTo("/import");
     }
 
-    void OnViewCalendarClick()
+    async Task OnViewCalendarClick()
     {
-        // Navigate to the external calendar service
-        NavigationManager.NavigateTo("http://127.0.0.1:7070/calendar", forceLoad: true);
+        // Opens the external calendar in a new tab
+        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:7070/calendar");
     }
 }

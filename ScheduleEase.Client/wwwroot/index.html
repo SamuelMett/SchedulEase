@@ -31,6 +31,19 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+
+    <script>
+        window.openInNewTab = (url) => {
+            try {
+                const newTab = window.open(url, "_blank");
+                if (!newTab) {
+                    alert("Please allow popups for this site to open external links.");
+                }
+            } catch (err) {
+                console.error("Error opening new tab:", err);
+            }
+        };
+    </script>
 </body>
 
 </html>
