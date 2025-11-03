@@ -12,14 +12,14 @@
                 <RadzenLink Text="Import" Path="/import" class="nav-link" />
             </RadzenStack>
 
-            <RadzenButton Text="Connect Google Account"
-                          Icon="login"
-                          ButtonStyle="ButtonStyle.Primary"
-                          Click="OnConnectClick" />
+            <a href="https://127.0.0.1:8000/login" target="_blank" class="rz-button rz-button-primary rz-button-icon-left" style="text-decoration: none;">
+                <RadzenIcon Icon="login" class="rz-button-icon" />
+                <span class="rz-button-text">Connect Google Account</span>
+            </a>
         </RadzenStack>
     </RadzenHeader>
 
-    <RadzenBody>
+    <RadzenBody>S
         <div class="main-content">
             @Body
         </div>
@@ -27,12 +27,4 @@
 
 </RadzenLayout>
 
-@code {
-    void OnConnectClick()
-    {
-        // This button navigates the user's browser (full page)
-        // to the backend's login route. The backend will then redirect
-        // to Google, and Google will redirect back to this app.
-        NavigationManager.NavigateTo("http://127.0.0.1:8000/login", forceLoad: true);
-    }
 }

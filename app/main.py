@@ -32,24 +32,18 @@ app = FastAPI(title="SchedulEase API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:7070",  # Example: default Blazor port
-        # Add the specific URL your Radzen app runs on
-    ],
-    allow_credentials=True,  # <-- This is ESSENTIAL for cookies
-    allow_methods=["*"],     # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],     # Allow all headers
+    allow_origins=["http://127.0.0.1:7070"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
-
-
-# --- Middleware ---
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
-    session_cookie="session",  # Name of the cookie
-    same_site="lax",           # CSRF protection
-    https_only=False           # Set to True in production
+    session_cookie="session",
+    same_site="lax",
+    https_only=False
 )
 
 oauth = OAuth()
