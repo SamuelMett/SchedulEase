@@ -7,3 +7,5 @@ python-multipart
 pypdf
 openai
 httpx
+ics
+itsdangerous
