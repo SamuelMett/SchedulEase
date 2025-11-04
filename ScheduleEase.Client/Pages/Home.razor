@@ -101,7 +101,11 @@
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
             <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
             <RadzenButton Text="View Calendar" Icon="calendar_today" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Secondary" Click="OnViewCalendarClick" />
-            <RadzenButton Text="AI Assistant" Icon="psychology" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" />
+<RadzenButton Text="AI Assistant"
+              Icon="psychology"
+              Size="ButtonSize.Medium"
+              ButtonStyle="ButtonStyle.Light"
+                          Click="OnAssistantClick" />
         </RadzenStack>
     </RadzenStack>
 </div>
@@ -127,4 +131,9 @@
         // Opens the external calendar in a new tab
         await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:7070/calendar");
     }
+
+    void OnAssistantClick()
+{
+    NavigationManager.NavigateTo("/assistant");
+}
 }

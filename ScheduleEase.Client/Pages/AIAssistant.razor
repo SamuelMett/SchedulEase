@@ -1,0 +1,137 @@
+@page "/assistant"
+@using System
+@using System.Collections.Generic
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+<header class="ai-topbar">
+  <div class="ai-topbar__left">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 3l1.29 2.61L17 6.27l-2 2 .47 2.73L13 10.27l-2.47.73L11 8.27l-2-2 2.71-.66L13 3zM5 13l1.29 2.61L9 16.27l-2 2 .47 2.73L5 20.27l-2.47.73L3 18.27l-2-2 2.71-.66L5 13zm12 0l1.29 2.61L21 16.27l-2 2 .47 2.73L17 20.27l-2.47.73L15 18.27l-2-2 2.71-.66L17 13z" fill="currentColor"/>
+    </svg>
+    <span>SchedulEase Assistant</span>
+  </div>
+  <div class="ai-topbar__right">
+    <span class="ai-dot"></span>
+    <span class="ai-muted">Online</span>
+  </div>
+</header>
+
+<main class="ai-wrap">
+  <section class="ai-thread">
+    @if (_messages.Count == 0)
+    {
+      <div class="ai-empty">
+        <div class="ai-empty__icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M13 3l1.29 2.61L17 6.27l-2 2 .47 2.73L13 10.27l-2.47.73L11 8.27l-2-2 2.71-.66L13 3zM5 13l1.29 2.61L9 16.27l-2 2 .47 2.73L5 20.27l-2.47.73L3 18.27l-2-2 2.71-.66L5 13zm12 0l1.29 2.61L21 16.27l-2 2 .47 2.73L17 20.27l-2.47.73L15 18.27l-2-2 2.71-.66L17 13z" fill="currentColor"/>
+          </svg>
+        </div>
+        <h2>How can I help you today?</h2>
+        <p class="ai-empty__sub">Start a conversation by typing a message below</p>
+      </div>
+    }
+    else
+    {
+      @foreach (var m in _messages)
+      {
+        bool isUser = m.Role == "user";
+        <article class="ai-msg @(isUser ? "is-user" : "is-assistant")">
+          <div class="ai-avatar">@(isUser ? "You" : "SE")</div>
+          <div class="ai-bubble">
+            <div class="ai-meta">
+              <span class="ai-who">@(isUser ? "You" : "Assistant")</span>
+              <span class="ai-when">@m.At.ToShortTimeString()</span>
+            </div>
+            @if (m.Typing)
+            {
+              <div class="ai-typing"><span></span><span></span><span></span></div>
+            }
+            else
+            {
+              <div class="ai-text">@m.Text</div>
+            }
+          </div>
+        </article>
+      }
+    }
+  </section>
+
+  <section class="ai-composer">
+    <div class="ai-inputbar">
+      <!-- Single-line input, Enter sends -->
+      <input class="ai-input ai-input--single"
+             type="text"
+             placeholder="Message AI…"
+             @bind="_input"
+             @bind:event="oninput"
+             @onkeydown="HandleKeyDown" />
+
+      <button class="ai-send"
+              @onclick="OnSend"
+              disabled="@string.IsNullOrWhiteSpace(_input)"
+              title="Send">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <div class="ai-hint">Press <kbd>Enter</kbd> to send</div>
+  </section>
+</main>
+
+@code {
+  private sealed record ChatMessage(string Role, string Text, DateTime At, bool Typing = false);
+
+  private readonly List<ChatMessage> _messages = new();
+  private string _input = string.Empty;
+
+  protected override void OnInitialized()
+  {
+    _messages.Add(new ChatMessage(
+      "assistant",
+      "Hi! Ask me about syllabus parsing, Canvas, or your schedule.",
+      DateTime.Now));
+  }
+
+  private async Task HandleKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_input))
+    {
+      await OnSend();
+    }
+  }
+
+  private async Task OnSend()
+  {
+    var text = _input?.Trim();
+    if (string.IsNullOrWhiteSpace(text)) return;
+
+    _messages.Add(new ChatMessage("user", text, DateTime.Now));
+    _input = string.Empty;
+
+    var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
+    _messages.Add(typing);
+
+    await Task.Delay(400); // simulate reply
+    var reply = BuildPlaceholderReply(text);
+
+    var idx = _messages.IndexOf(typing);
+    if (idx >= 0) _messages[idx] = new ChatMessage("assistant", reply, DateTime.Now);
+
+    StateHasChanged();
+  }
+
+  private string BuildPlaceholderReply(string prompt)
+  {
+    if (prompt.Contains("due", StringComparison.OrdinalIgnoreCase))
+      return "Once you connect Canvas or upload a syllabus, I’ll list upcoming deadlines. Try the Home page to connect.";
+    if (prompt.Contains("syllabus", StringComparison.OrdinalIgnoreCase))
+      return "Use Upload Syllabus on the home page. I’ll parse assignments, exams, and projects into your calendar.";
+    if (prompt.Contains("canvas", StringComparison.OrdinalIgnoreCase))
+      return "Canvas integration pulls assignments automatically. After you connect, ask me “What’s due this week?”";
+    if (prompt.Contains("study", StringComparison.OrdinalIgnoreCase))
+      return "Tell me the course and time window (e.g., CMPS 383 — 2 hours tonight). I’ll propose a focused plan.";
+    return $"You said: {prompt}";
+  }
+}
