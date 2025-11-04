@@ -1,0 +1,159 @@
+@using Radzen
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
+
+@code {
+  record ChatMessage(string Role, string Text, DateTime At);
+
+  List<ChatMessage> msgs = new()
+  {
+    new("bot","Hey! I’m your SchedulEase assistant. Ask me about assignments, exams, or to build a study plan.", DateTime.Now)
+  };
+
+  string input = "";
+
+  string Reply(string t){
+    t = (t ?? "").ToLowerInvariant();
+    if (t.Contains("schedule") || t.Contains("plan"))
+      return "Here’s a sample plan:\n• 8:00 — CS\n• 11:00 — Project\n• 2:00 — Lunch\n• 3:00 — Study";
+    if (t.Contains("assignment") || t.Contains("homework"))
+      return "You have 3 items:\n• AI Lab 4 (Fri)\n• UX Report (Sun)\n• DBMS Project (Tue)";
+    if (t.Contains("exam") || t.Contains("test"))
+      return "Next exam: CMPS 383 — Tue 9:00 AM.";
+    if (t.Contains("hello") || t.Contains("hi"))
+      return "Hey! How can I help today?";
+    if (t.Contains("thank"))
+      return "No problem!";
+    return "Try asking about your schedule, exams, or assignments.";
+  }
+
+  async Task SendAsync(){
+    var val = (input ?? "").Trim();
+    if (string.IsNullOrEmpty(val)) return;
+
+    msgs.Add(new("user", val, DateTime.Now));
+    input = "";
+
+    await Task.Delay(250);
+    msgs.Add(new("bot", Reply(val), DateTime.Now));
+  }
+
+  async Task OnFiles(InputFileChangeEventArgs e){
+    var list = e.GetMultipleFiles().Select(f => $"{f.Name} ({Bytes(f.Size)})");
+    msgs.Add(new("bot", $"Files selected:\n{string.Join("\n", list)}\n(Handle upload in backend.)", DateTime.Now));
+    await InvokeAsync(StateHasChanged);
+  }
+
+  static string Bytes(long n){
+    string[] u = { "B","KB","MB","GB","TB" }; int i=0; double d=n;
+    while (d>=1024 && i<u.Length-1){ d/=1024; i++; }
+    return $"{(d<10&&i>0?d.ToString("0.0"):Math.Round(d))} {u[i]}";
+  }
+
+  async Task OnKeyDown(KeyboardEventArgs e){
+    if (e.Key == "Enter" && !e.ShiftKey){
+      input = (input ?? "").TrimEnd('\r','\n');
+      await SendAsync();
+    }
+  }
+}
+
+<style>
+  :root { --rz-primary:#2563eb; --rz-on-primary:#fff; }
+
+  /* Dock the dialog to bottom-right and tighten the sheet */
+  .chatdock .rz-dialog-wrapper{
+    align-items:flex-end;               
+    justify-content:flex-end;           
+    padding:24px;
+  }
+  .chatdock .rz-dialog{
+    width:420px; max-width:95vw; margin:0;
+    border-radius:14px; overflow:hidden;
+  }
+  .chatdock .rz-dialog-titlebar{
+    background:linear-gradient(90deg,#1e3a8a,#2563eb); color:#fff;
+    border-bottom:1px solid rgba(255,255,255,.15);
+  }
+  .chatdock .rz-dialog-content{
+    padding:0; background:#f1f5f9;
+  }
+
+  /* Panel */
+  .cd-panel{display:flex;flex-direction:column;height:560px;}
+  .cd-header{padding:12px 14px;display:flex;gap:10px;align-items:center;color:#fff;background:linear-gradient(90deg,#1e3a8a,#2563eb);}
+  .cd-avatar{width:34px;height:34px;border-radius:9999px;background:#fff;color:#2563eb;display:grid;place-items:center;font-weight:700;}
+  .cd-title .name{font-weight:600;font-size:15px;color:#fff}
+  .cd-title .sub{font-size:12px;color:#e8eefc}
+
+  /* Messages */
+  .cd-messages{flex:1 1 auto;min-height:0;overflow:auto;padding:14px;background:#f1f5f9;}
+  .cd-row{display:flex;gap:8px;margin:10px 0}
+  .cd-row.user{justify-content:flex-end}
+  .cd-chip{width:26px;height:26px;border-radius:9999px;background:#2563eb;color:#fff;font-size:11px;display:grid;place-items:center;margin-top:4px}
+  .cd-bubble{max-width:82%;padding:10px 13px;border-radius:16px;font-size:.95rem;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .cd-bot{background:#fff;border:1px solid #e2e8f0;border-bottom-left-radius:6px}
+  .cd-user{background:#2563eb;color:#fff;border-bottom-right-radius:6px}
+  .cd-time{margin-top:5px;font-size:.7rem;color:#64748b}
+  .cd-time.user{color:#e0eaff}
+
+  .cd-composer{padding:10px;border-top:1px solid #e2e8f0;background:#fff}
+  .cd-composer .row{
+    display:flex; align-items:center; gap:8px;
+  }
+  .cd-composer .attach{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:10px; background:#f8fafc; border:1px solid #dbe3ef;
+  }
+  .cd-composer .attach:hover{ background:#eef5ff; }
+  .cd-composer .rz-textarea{
+    flex:1 1 auto; min-height:42px; max-height:110px;
+  }
+  .cd-composer .rz-button{
+    border-radius:10px; height:38px; min-width:38px;
+  }
+</style>
+
+<div class="cd-panel">
+  <div class="cd-header">
+    <div class="cd-avatar">S</div>
+    <div class="cd-title">
+      <div class="name">SchedulEase</div>
+      <div class="sub">AI assistant</div>
+    </div>
+  </div>
+
+  <div class="cd-messages">
+    @foreach (var m in msgs)
+    {
+      var isUser = m.Role=="user";
+      <div class="cd-row @(isUser?"user":"")">
+        @if(!isUser){<div class="cd-chip">SE</div>}
+        <div>
+          <div class="cd-bubble @(isUser?"cd-user":"cd-bot")">@m.Text</div>
+          <div class="cd-time @(isUser?"user":"")">@m.At.ToShortTimeString()</div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="cd-composer">
+    <div class="row">
+      <InputFile id="chat-file" OnChange="@OnFiles" multiple style="display:none" />
+      <label for="chat-file" class="attach" title="Attach files">
+        <i class="rzi rzi-attach_file"></i>
+      </label>
+
+      <RadzenTextArea @bind-Value="input"
+                      Rows="2"
+                      Placeholder="Type a message…"
+                      @onkeydown="OnKeyDown" />
+
+      <RadzenButton Icon="send" ButtonStyle="ButtonStyle.Primary" Click="@SendAsync" />
+    </div>
+
+    <div style="font-size:11px;color:#94a3b8;margin:6px 4px 0;text-align:center">
+      Enter to send • Shift+Enter for newline
+    </div>
+  </div>
+</div>
