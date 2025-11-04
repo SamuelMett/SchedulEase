@@ -1,0 +1,46 @@
+﻿@page "/calendar"
+@using ScheduleEase.Client.Models  @* <-- ADD THIS for the @code block *@
+@using Radzen.Blazor
+@* @inherits MyCalendar <-- REMOVE THIS LINE *@
+
+<h3>My Google Calendar</h3>
+
+@if (events == null && string.IsNullOrEmpty(errorMessage))
+{
+    <p><em>Loading events...</em></p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter" AllowClose="false">
+        <strong>Error:</strong> @errorMessage
+        <br>
+        Please <a href="http://127.0.0.1:8000/login" target="_blank">login to your Google Account</a> first, then refresh this page.
+    </RadzenAlert>
+}
+else
+{
+    <RadzenScheduler @ref="scheduler"
+                     Data="@events"
+                     TextProperty="Title"
+                     StartProperty="Start"
+                     EndProperty="End"
+                     Style="height: 768px;"
+                     SlotRender="@OnSlotRender">
+        <RadzenMonthView />
+        <RadzenWeekView />
+        <RadzenDayView />
+    </RadzenScheduler>
+}
+
+@code {
+    // This is correct, but it needed the @using statement at the top
+    RadzenScheduler<GoogleCalendarEvent> scheduler;
+
+    void OnSlotRender(SchedulerSlotRenderEventArgs args)
+    {
+        if (args.View.Text == "Month")
+        {
+            args.Attributes["style"] = "height: 120px;";
+        }
+    }
+}

@@ -1,0 +1,32 @@
+.main-header {
+    background: #ffffff;
+    border-bottom: 1px solid #E0E0E0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.brand-title {
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+    .nav-link:hover {
+        color: var(--rz-primary); /* Radzen's primary color */
+    }
+
+    /* This targets the <a> tag inside the RadzenLink component */
+    .nav-link.active > a {
+        color: var(--rz-primary);
+        font-weight: 700;
+    }
+
+.main-content {
+    padding: 2rem;
+}

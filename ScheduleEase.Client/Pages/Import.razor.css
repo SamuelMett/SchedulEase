@@ -1,0 +1,22 @@
+﻿.upload-card {
+    padding: 2rem;
+    border: 2px dashed var(--rz-primary-lighter);
+    background-color: var(--rz-primary-lightest);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: var(--rz-primary-dark);
+}
+
+.confirmation-card {
+    max-width: 800px;
+}
+
+.event-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 8px;
+}

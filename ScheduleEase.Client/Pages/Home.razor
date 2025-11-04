@@ -1,0 +1,130 @@
+﻿@page "/"
+
+
+<!-- Hero Section -->
+<div class="full-width-section hero-bg">
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Class="section-inner rz-py-24 rz-px-8">
+
+        <RadzenStack Orientation="Orientation.Vertical" Gap="1.5rem" AlignItems="AlignItems.Center" Style="max-width:750px;">
+            <div class="hero-badge">
+                <RadzenIcon Icon="auto_awesome" Class="rz-mr-1" />
+                <span>AI-Powered Academic Planning</span>
+            </div>
+
+            <RadzenHeading Size="H1" Class="hero-title">
+                Transform Your <span class="accent-blue">Academic Life</span> with <span class="accent-red">SchedulEase</span>
+            </RadzenHeading>
+
+            <RadzenText Text="Never miss another deadline. Our AI automatically extracts assignments from syllabi and Canvas, creating a personalized study calendar that adapts to your schedule."
+                        TextStyle="TextStyle.H5"
+                        Class="hero-subtitle rz-text-center" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
+                <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
+                <RadzenButton Text="Connect Google Account" Icon="login" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Secondary" Click="OnConnectClick" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenStack>
+</div>
+
+<!-- Features Section -->
+<div class="full-width-section features-bg">
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Class="section-inner rz-py-20 rz-px-8">
+        <RadzenHeading Text="Everything You Need to Stay Organized" Size="H2" Class="rz-text-center rz-mb-3" />
+        <RadzenText Text="From AI-powered syllabus parsing to intelligent study recommendations, SchedulEase has all the tools to keep you on track."
+                    TextStyle="TextStyle.H6"
+                    Class="rz-text-center rz-mb-8" />
+
+        <RadzenStack Orientation="Orientation.Horizontal" FlexWrap="FlexWrap.Wrap" Gap="2rem" JustifyContent="JustifyContent.Center" Style="max-width:1000px;">
+            <RadzenCard Class="feature-card">
+                <RadzenIcon Icon="description" Size="36px" Class="rz-text-primary rz-mb-2" />
+                <RadzenHeading Text="Smart Syllabus Parsing" Size="H5" />
+                <RadzenText Text="AI automatically extracts assignments, exams, and deadlines from any syllabus format." />
+            </RadzenCard>
+
+            <RadzenCard Class="feature-card">
+                <RadzenIcon Icon="school" Size="36px" Class="rz-text-success rz-mb-2" />
+                <RadzenHeading Text="Canvas Integration" Size="H5" />
+                <RadzenText Text="Seamlessly sync with Canvas LMS to import all your course assignments automatically." />
+            </RadzenCard>
+
+            <RadzenCard Class="feature-card">
+                <RadzenIcon Icon="calendar_month" Size="36px" Class="rz-text-purple rz-mb-2" />
+                <RadzenHeading Text="Smart Calendar Sync" Size="H5" />
+                <RadzenText Text="Export to Google Calendar with intelligent scheduling and deadline reminders." />
+            </RadzenCard>
+
+            <RadzenCard Class="feature-card">
+                <RadzenIcon Icon="psychology" Size="36px" Class="rz-text-warning rz-mb-2" />
+                <RadzenHeading Text="AI Study Assistant" Size="H5" />
+                <RadzenText Text="Get personalized study plans, flashcards, and AI tutoring to stay on schedule." />
+            </RadzenCard>
+        </RadzenStack>
+    </RadzenStack>
+</div>
+
+<!-- Steps Section -->
+<div class="full-width-section steps-bg">
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Class="section-inner rz-py-20 rz-px-8">
+        <RadzenHeading Text="Get Started in 3 Simple Steps" Size="H2" Class="rz-text-center rz-mb-2" />
+        <RadzenText Text="From syllabus to organized schedule in minutes" TextStyle="TextStyle.H6" Class="rz-text-center rz-mb-8" />
+
+        <RadzenStack Orientation="Orientation.Horizontal" FlexWrap="FlexWrap.Wrap" Gap="3rem" JustifyContent="JustifyContent.Center">
+            <div class="step">
+                <div class="step-number">1</div>
+                <RadzenHeading Text="Upload or Connect" Size="H5" />
+                <RadzenText Text="Upload your syllabus PDF or connect Canvas to import course data." />
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <RadzenHeading Text="AI Processing" Size="H5" />
+                <RadzenText Text="Our AI organizes assignments, exams, and important dates automatically." />
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <RadzenHeading Text="Stay Organized" Size="H5" />
+                <RadzenText Text="Review, edit, and export your personalized academic calendar to Google Calendar." />
+            </div>
+        </RadzenStack>
+    </RadzenStack>
+</div>
+
+<!-- CTA Section -->
+<div class="full-width-section cta-bg">
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Class="section-inner rz-py-16 rz-px-8">
+        <RadzenHeading Text="Ready to Transform Your Academic Life?" Size="H2" Class="rz-text-center rz-mb-2" />
+        <RadzenText Text="Join thousands of students who never miss a deadline with SchedulEase." TextStyle="TextStyle.H6" Class="rz-text-center rz-mb-5" />
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
+            <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
+            <RadzenButton Text="View Calendar" Icon="calendar_today" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Secondary" Click="OnViewCalendarClick" />
+            <RadzenButton Text="AI Assistant" Icon="psychology" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" />
+        </RadzenStack>
+    </RadzenStack>
+</div>
+
+@code {
+    [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    async Task OnConnectClick()
+    {
+        // Opens Google login in a new tab
+        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:8000/login");
+    }
+
+    async Task OnImportSyllabusClick()
+    {
+        // Navigate within Blazor
+        NavigationManager.NavigateTo("/import");
+    }
+
+    async Task OnViewCalendarClick()
+    {
+        // Opens the external calendar in a new tab
+        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:7070/calendar");
+    }
+}

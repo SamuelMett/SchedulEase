@@ -1,0 +1,18 @@
+﻿.hero-section {
+    min-height: 80vh; /* Make the hero section tall */
+    text-align: center;
+    padding: 2rem;
+}
+
+.hero-title {
+    font-weight: 700;
+    max-width: 600px;
+    margin-bottom: 1rem;
+}
+
+.hero-subtitle {
+    font-weight: 400;
+    max-width: 550px;
+    color: #666;
+    margin-bottom: 2rem;
+}
