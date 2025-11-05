@@ -1,8 +1,6 @@
 @page "/assistant"
-@using System
-@using System.Collections.Generic
-@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
 
 <header class="ai-topbar">
   <div class="ai-topbar__left">
@@ -28,7 +26,7 @@
           </svg>
         </div>
         <h2>How can I help you today?</h2>
-        <p class="ai-empty__sub">Start a conversation by typing a message below</p>
+        <p class="ai-empty__sub">Type a message or click <strong>+</strong> to add a file.</p>
       </div>
     }
     else
@@ -58,31 +56,44 @@
   </section>
 
   <section class="ai-composer">
-    <div class="ai-inputbar">
-      <!-- Single-line input, Enter sends -->
-      <input class="ai-input ai-input--single"
+    <div class="pill">
+      <!-- + add icon that triggers hidden file input -->
+      <label class="pill__plus" for="uploader" title="Add file">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </label>
+
+      <InputFile id="uploader"
+                 class="visually-hidden"
+                 OnChange="HandleFileSelected"
+                 accept=".pdf,.doc,.docx,.txt" />
+
+      <!-- text input -->
+      <input class="pill__input"
              type="text"
-             placeholder="Message AI…"
+             placeholder="Ask anything"
              @bind="_input"
              @bind:event="oninput"
              @onkeydown="HandleKeyDown" />
 
-      <button class="ai-send"
+      <!-- send -->
+      <button class="pill__send"
               @onclick="OnSend"
               disabled="@string.IsNullOrWhiteSpace(_input)"
               title="Send">
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" fill="currentColor"/>
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12l18-9-6 9 6 9-18-9z" fill="currentColor"/>
         </svg>
       </button>
     </div>
-    <div class="ai-hint">Press <kbd>Enter</kbd> to send</div>
+
+    <div class="ai-hint">Press <kbd>Enter</kbd> to send • Click <span class="hint-plus">+</span> to add file</div>
   </section>
 </main>
 
 @code {
   private sealed record ChatMessage(string Role, string Text, DateTime At, bool Typing = false);
-
   private readonly List<ChatMessage> _messages = new();
   private string _input = string.Empty;
 
@@ -90,16 +101,14 @@
   {
     _messages.Add(new ChatMessage(
       "assistant",
-      "Hi! Ask me about syllabus parsing, Canvas, or your schedule.",
+      "Hi! Ask me about your schedule — or click + to add a syllabus file.",
       DateTime.Now));
   }
 
   private async Task HandleKeyDown(KeyboardEventArgs e)
   {
     if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_input))
-    {
       await OnSend();
-    }
   }
 
   private async Task OnSend()
@@ -113,7 +122,7 @@
     var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
     _messages.Add(typing);
 
-    await Task.Delay(400); // simulate reply
+    await Task.Delay(400);
     var reply = BuildPlaceholderReply(text);
 
     var idx = _messages.IndexOf(typing);
@@ -122,16 +131,24 @@
     StateHasChanged();
   }
 
+  private async Task HandleFileSelected(InputFileChangeEventArgs e)
+  {
+    var file = e.File;
+    if (file is null) return;
+
+    _messages.Add(new ChatMessage("user", $"📎 {file.Name}", DateTime.Now));
+    _messages.Add(new ChatMessage("assistant", $"Nice! I’ll process **{file.Name}** when upload is enabled.", DateTime.Now));
+    await InvokeAsync(StateHasChanged);
+  }
+
   private string BuildPlaceholderReply(string prompt)
   {
     if (prompt.Contains("due", StringComparison.OrdinalIgnoreCase))
-      return "Once you connect Canvas or upload a syllabus, I’ll list upcoming deadlines. Try the Home page to connect.";
+      return "Once you upload a syllabus, I’ll list upcoming deadlines.";
     if (prompt.Contains("syllabus", StringComparison.OrdinalIgnoreCase))
-      return "Use Upload Syllabus on the home page. I’ll parse assignments, exams, and projects into your calendar.";
+      return "Upload a PDF syllabus and I’ll extract dates and tasks.";
     if (prompt.Contains("canvas", StringComparison.OrdinalIgnoreCase))
-      return "Canvas integration pulls assignments automatically. After you connect, ask me “What’s due this week?”";
-    if (prompt.Contains("study", StringComparison.OrdinalIgnoreCase))
-      return "Tell me the course and time window (e.g., CMPS 383 — 2 hours tonight). I’ll propose a focused plan.";
+      return "After Canvas is connected, ask “What’s due this week?”";
     return $"You said: {prompt}";
   }
 }
