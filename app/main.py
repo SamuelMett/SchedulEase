@@ -25,10 +25,11 @@ from .models import ScheduledEvent, EventFromSelector
 from .google_scheduler import schedule_event_on_google_calendar, schedule_multiple_events
 from datetime import datetime, timezone
 
+# NEW: chat router import (added)
+from app.routers import chat as chat_router
+
 # --- Initialize FastAPI App ---
 app = FastAPI(title="SchedulEase API")
-
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,7 +56,7 @@ oauth.register(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-client_kwargs={
+    client_kwargs={
         'scope': 'openid email profile https://www.googleapis.com/auth/calendar'
     },
     access_type='offline',
@@ -64,6 +65,9 @@ client_kwargs={
 
 # --- API Routes ---
 app.include_router(calendar_api.router)
+
+# NEW: mount chat router (added)
+app.include_router(chat_router.router, prefix="/api/chat", tags=["Chat API"])
 
 @app.get('/', response_class=HTMLResponse)
 async def homepage(request: Request):
