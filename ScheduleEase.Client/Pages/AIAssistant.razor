@@ -62,7 +62,6 @@
 
   <section class="ai-composer">
     <div class="pill">
-      <!-- + add icon triggers hidden file input -->
       <label class="pill__plus" for="uploader" title="Add file">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -82,15 +81,15 @@
              @bind:event="oninput"
              @onkeydown="HandleKeyDown" />
 
-      <!-- send -->
-      <button class="pill__send"
-              @onclick="OnSend"
-              disabled="@string.IsNullOrWhiteSpace(_input)"
-              title="Send">
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 12l18-9-6 9 6 9-18-9z" fill="currentColor"/>
-        </svg>
-      </button>
+     <button class="pill__send"
+        @onclick="OnSend"
+        disabled="@string.IsNullOrWhiteSpace(_input)"
+        title="Send">
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M2 21L23 12 2 3l4.7 8L2 21zm6.2-5.6l1.9-1.9 6.4-1.5-6.4-1.5-1.9-1.9 1.9 3.4-1.9 3.4z" fill="currentColor"/>
+  </svg>
+</button>
+
     </div>
 
     <div class="ai-hint">Press <kbd>Enter</kbd> to send • Click <span class="hint-plus">+</span> to add file</div>
@@ -98,20 +97,16 @@
 </main>
 
 @code {
-  // ---------- UI model ----------
   private sealed record ChatMessage(string Role, string Text, DateTime At, bool Typing = false);
   private readonly List<ChatMessage> _messages = new();
   private string _input = string.Empty;
 
-  // Use one session id per browser tab
   private readonly string _sessionId = Guid.NewGuid().ToString("N");
 
-  // ---------- API models (match backend) ----------
   private sealed class ChatSendRequest
   {
       [JsonPropertyName("session_id")] public string SessionId { get; set; } = default!;
       [JsonPropertyName("message")]    public string Message   { get; set; } = default!;
-      // We’ll omit keywords unless explicitly needed
   }
 
   private sealed class ChatResponse
@@ -129,7 +124,6 @@
       DateTime.Now));
   }
 
-  // Enter to send (Shift+Enter = newline if you ever swap to <textarea>)
   private async Task HandleKeyDown(KeyboardEventArgs e)
   {
     if (e.Key == "Enter" && !e.ShiftKey && !string.IsNullOrWhiteSpace(_input))
@@ -143,11 +137,9 @@
     var text = _input?.Trim();
     if (string.IsNullOrWhiteSpace(text)) return;
 
-    // Add user's bubble
     _messages.Add(new ChatMessage("user", text, DateTime.Now));
     _input = string.Empty;
 
-    // Add typing bubble
     var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
     _messages.Add(typing);
     StateHasChanged();
@@ -161,7 +153,6 @@
       var payload = await httpResp.Content.ReadFromJsonAsync<ChatResponse>();
       var reply = payload?.Message ?? "…";
 
-      // replace typing bubble
       var idx = _messages.IndexOf(typing);
       if (idx >= 0) _messages[idx] = new ChatMessage("assistant", reply, DateTime.Now);
     }
@@ -180,22 +171,17 @@
     var file = e.File;
     if (file is null) return;
 
-    // Show file message
     _messages.Add(new ChatMessage("user", $"📎 {file.Name}", DateTime.Now));
 
-    // Assistant typing
     var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
     _messages.Add(typing);
     StateHasChanged();
 
     try
     {
-      // Build multipart form
       using var content = new MultipartFormDataContent();
-      // IMPORTANT: provide the session_id form field name expected by backend
       content.Add(new StringContent(_sessionId), "session_id");
 
-      // Limit stream if you want (e.g., 20 MB)
       const long max = 20 * 1024 * 1024;
       using var stream = file.OpenReadStream(max);
       var fileContent = new StreamContent(stream);
@@ -205,7 +191,6 @@
       var httpResp = await Http.PostAsync("/api/chat/upload", content);
       httpResp.EnsureSuccessStatusCode();
 
-      // Friendly confirmation
       var okText = $"Syllabus attached. You can now ask “what’s due” or request a study plan.";
       var idx = _messages.IndexOf(typing);
       if (idx >= 0) _messages[idx] = new ChatMessage("assistant", okText, DateTime.Now);
