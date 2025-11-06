@@ -27,11 +27,8 @@ from ..ai_processor import (
 router = APIRouter()
 
 
-# ---------- helpers ----------
-
 def _parse_event_date(d: str) -> date | None:
     try:
-        # expecting 'YYYY-MM-DD'
         return date.fromisoformat(d)
     except Exception:
         return None
@@ -46,7 +43,6 @@ def _filter_due(events: List[ScheduledEvent], days: int = 14) -> List[ScheduledE
         sd = _parse_event_date(ev.start_date)
         if sd and today <= sd <= end:
             due.append(ev)
-    # sort by start_date
     due.sort(key=lambda e: e.start_date)
     return due
 
@@ -89,9 +85,7 @@ async def send(req: ChatRequest):
             add_turn(req.session_id, "assistant", guidance)
             return ChatResponse(type="study_plan", message=guidance, data=None)
 
-        # Use summary as source text; if you prefer full PDF text, persist it and pass that instead.
         assets = await make_study_assets(ctx.summary, req.keywords or [])
-        # Short, readable bubble text:
         msg = f"I built a {sum(t.duration_min for t in assets.plan)}-minute study plan with {len(assets.flashcards)} flashcards."
         add_turn(req.session_id, "assistant", msg)
         return ChatResponse(type="study_plan", message=msg, data=assets.model_dump())
@@ -109,7 +103,7 @@ async def send(req: ChatRequest):
 @router.post("/upload")
 async def upload_to_session(
     session_id: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     """
     In-chat upload: reuse your existing pipeline to parse the syllabus and
@@ -119,16 +113,16 @@ async def upload_to_session(
         # many browsers send octet-stream for PDFs; allow both
         raise HTTPException(status_code=400, detail="Please upload a PDF.")
 
-    # Reuse your existing pipeline
+    # Extract and analyze
     text = await extract_text_from_file(file)
     analysis: AiAnalysisResult | None = await extract_analysis_from_text(text, context_date=date.today())
-
     if analysis is None:
         raise HTTPException(status_code=422, detail="Could not extract structured data from this file.")
 
-    ctx = attach_analysis(session_id, analysis)
-    add_turn(session_id, "assistant", "Syllabus attached. You can now ask “what’s due” or request a study plan.")
+    # Store both structured and raw text in the session
+    ctx = attach_analysis(session_id, analysis, raw_text=text)  # <-- raw_text passed in
 
+    add_turn(session_id, "assistant", "Syllabus attached. You can now ask “what’s due” or request a study plan.")
     return {
         "attached_to_session": True,
         "summary": analysis.summary,

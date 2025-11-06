@@ -1,6 +1,7 @@
 # app/ai_processor.py
 # -*- coding: utf-8 -*-
 
+import re
 import json
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import date
@@ -17,6 +18,26 @@ from .models import (
 
 # Single shared OpenAI client
 client = OpenAI()
+
+
+# -------------------------------------------------
+# Small heuristic: pull quick facts from raw syllabus text
+# -------------------------------------------------
+def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
+    # very small heuristics for common facts
+    if re.search(r"\binstructor|professor\b", message, re.I):
+        m = re.search(r"(Instructor|Professor)\s*[:\-]\s*(.+)", raw, re.I)
+        if m:
+            return m.group(2).strip()
+    if re.search(r"\boffice hours?\b", message, re.I):
+        m = re.search(r"Office\s*Hours?\s*[:\-]\s*(.+)", raw, re.I)
+        if m:
+            return m.group(1).strip()
+    if re.search(r"\bemail\b", message, re.I):
+        m = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", raw, re.I)
+        if m:
+            return m.group(0)
+    return None
 
 
 # -------------------------------
@@ -85,7 +106,7 @@ Please analyze the following syllabus text based on this context.
 
 
 # -------------------------------
-# New: Study assets (plan + flashcards)
+# New: Study assets 
 # -------------------------------
 async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAssets:
     """
@@ -97,9 +118,9 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
         "produce a compact study plan and flashcards.\n\n"
         "Output strictly as JSON with this shape:\n"
         "{\n"
-        '  \"keywords\": [string],\n'
-        '  \"plan\": [{\"title\": string, \"steps\": [string], \"duration_min\": int}],\n'
-        '  \"flashcards\": [{\"front\": string, \"back\": string}]\n'
+        '  "keywords": [string],\n'
+        '  "plan": [{"title": string, "steps": [string], "duration_min": int}],\n'
+        '  "flashcards": [{"front": string, "back": string}]\n'
         "}\n\n"
         "Rules:\n"
         "- Total study time ~60-120 minutes unless the user asked differently.\n"
@@ -143,14 +164,17 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
     )
 
 
-# -------------------------------
-# New: Grounded Q&A on summary/events
-# -------------------------------
 async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Dict[str, Any]]]:
     """
     Answers a question using only ctx.summary and ctx.events.
     Returns (message, extra_data).
     """
+    # NEW: quick facts directly from raw syllabus text (if we stored it)
+    if getattr(ctx, "raw_text", None):
+        qf = _quick_fact_from_text(message, ctx.raw_text or "")
+        if qf:
+            return qf, None
+
     lines: List[str] = []
     for e in (ctx.events or [])[:40]:
         lines.append(f"- {e.start_date}: {e.title}")

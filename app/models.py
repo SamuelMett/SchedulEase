@@ -103,6 +103,7 @@ class ChatContext(BaseModel):
     summary: Optional[str] = None                 # syllabus summary text
     events: List[ScheduledEvent] = []             # upcoming dated items
     turns: List[ChatTurn] = []                    # last few chat turns
+    raw_text: Optional[str] = None                # full syllabus text (for quick facts)
 
 class ChatRequest(BaseModel):
     session_id: str

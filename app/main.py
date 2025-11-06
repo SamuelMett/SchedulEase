@@ -66,7 +66,7 @@ oauth.register(
 # --- API Routes ---
 app.include_router(calendar_api.router)
 
-# NEW: mount chat router (added)
+#chat router 
 app.include_router(chat_router.router, prefix="/api/chat", tags=["Chat API"])
 
 @app.get('/', response_class=HTMLResponse)
@@ -106,7 +106,6 @@ async def auth(request: Request):
         token = await oauth.google.authorize_access_token(request)
         
     except Exception as e:
-        # If there's an error, this will print it to your console
         print(f"Error during authorize_access_token: {e}")
         return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
     
@@ -152,7 +151,6 @@ async def calendar_events(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        # Get the first day of the current year.
         current_year = datetime.now().year
         start_of_year = datetime(current_year, 1, 1, tzinfo=timezone.utc)
         time_min_param = start_of_year.isoformat()
@@ -171,7 +169,6 @@ async def calendar_events(request: Request):
         resp.raise_for_status()
         data = resp.json()
         
-        # Convert events to JSON suitable for frontend calendar
         events = []
         for event in data.get('items', []):
             start_info = event.get('start', {})
@@ -204,11 +201,8 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     # 2. Send the text to the AI for analysis
     print("Sending extracted text to AI for analysis...")
     
-    # --- THIS IS THE CHANGE ---
-    # Get the current date and pass it as context
     today = date.today()
     analysis_result = await extract_analysis_from_text(syllabus_text, today)
-    # --- END OF CHANGE ---
 
     if not analysis_result:
         raise HTTPException(
