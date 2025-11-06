@@ -100,18 +100,18 @@ class ChatContext(BaseModel):
     What the assistant knows for a given session.
     """
     session_id: str
-    summary: Optional[str] = None                 # syllabus summary text
-    events: List[ScheduledEvent] = []             # upcoming dated items
-    turns: List[ChatTurn] = []                    # last few chat turns
-    raw_text: Optional[str] = None                # full syllabus text (for quick facts)
+    summary: Optional[str] = None                
+    events: List[ScheduledEvent] = []            
+    turns: List[ChatTurn] = []                    
+    raw_text: Optional[str] = None                
 
 class ChatRequest(BaseModel):
     session_id: str
     message: str
-    keywords: Optional[List[str]] = None          # optional hint for study-plan generation
+    keywords: Optional[List[str]] = None          
 
 class ChatResponse(BaseModel):
-    # "type" helps the UI render specific UIs (due list, plan, flashcards)
+
     type: Literal["answer", "due_list", "study_plan", "flashcards"]
-    message: str                                  # concise text for the chat bubble
-    data: Optional[Dict[str, Any]] = None         # structured payload when applicable
+    message: str                                
+    data: Optional[Dict[str, Any]] = None        

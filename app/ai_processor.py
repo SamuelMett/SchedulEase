@@ -1,11 +1,9 @@
-# app/ai_processor.py
 # -*- coding: utf-8 -*-
 
-import re
 import json
+import re
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import date
-
 from openai import OpenAI
 
 from .models import (
@@ -16,59 +14,57 @@ from .models import (
     ChatContext,
 )
 
-# Single shared OpenAI client
 client = OpenAI()
 
-
-# -------------------------------------------------
-# Small heuristic: pull quick facts from raw syllabus text
-# -------------------------------------------------
+# ---------- quick facts from raw syllabus text ----------
 def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
-    # very small heuristics for common facts
+    # instructor / professor
     if re.search(r"\binstructor|professor\b", message, re.I):
-        m = re.search(r"(Instructor|Professor)\s*[:\-]\s*(.+)", raw, re.I)
+        m = re.search(r"(?:Instructor|Professor)\s*[:\-]\s*(.+)", raw, re.I)
         if m:
-            return m.group(2).strip()
+            return m.group(1).strip()
+    # office hours
     if re.search(r"\boffice hours?\b", message, re.I):
         m = re.search(r"Office\s*Hours?\s*[:\-]\s*(.+)", raw, re.I)
         if m:
             return m.group(1).strip()
+    # email
     if re.search(r"\bemail\b", message, re.I):
         m = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", raw, re.I)
         if m:
             return m.group(0)
     return None
+# --------------------------------------------------------
 
 
 # -------------------------------
-# Existing: syllabus analysis (kept as-is)
+# Existing: syllabus analysis
 # -------------------------------
 async def extract_analysis_from_text(text: str, context_date: date) -> AiAnalysisResult | None:
     """
     Analyze syllabus text and return structured summary + dated events using a function/tool call.
     """
-    system_prompt = """
-You are an expert academic assistant specializing in syllabus processing. Your task is to meticulously read a course syllabus, extract a concise summary, and identify all KEY, DATE-SPECIFIC events.
+    system_prompt = (
+        "You are an expert academic assistant specializing in syllabus processing. "
+        "Your task is to meticulously read a course syllabus, extract a concise summary, "
+        "and identify all KEY, DATE-SPECIFIC events.\n\n"
+        "Guiding Rules:\n"
+        "1) Extract Events: focus only on items with a specific date (e.g., Midterm Exam, Final Project Due).\n"
+        "2) Ignore recurring, non-graded items (weekly lecture, office hours, etc.).\n"
+        "3) Resolve Dates: use the provided Relevant Academic Year to form YYYY-MM-DD dates.\n"
+        "4) Be precise and descriptive in event titles.\n"
+        "5) You must return via the extract_document_info tool only."
+    )
 
-**Your Guiding Rules:**
-1.  **Extract Events:** Focus only on events with a specific date, such as 'Midterm Exam', 'Final Project Due', 'Assignment 1 Deadline', or 'Spring Break'.
-2.  **Ignore Recurring Events:** You MUST ignore recurring, non-graded events like 'Weekly Lecture', 'Lab Section', or 'Professor's Office Hours'.
-3.  **Resolve Dates:** Use the 'Relevant Academic Year' provided in the user's message to resolve all dates. If a syllabus says 'October 10th', you must combine it with the provided year to create a full 'YYYY-MM-DD' date.
-4.  **Be Precise:** Event titles should be descriptive (e.g., "Homework 1 Due," not just "Homework").
-5.  **Use the Tool:** You MUST return this information only by using the `extract_document_info` tool. Do not respond in plain text.
-""".strip()
-
-    user_prompt_content = f"""
-Here is the context for the syllabus:
--   Current Date: {context_date.isoformat()}
--   Relevant Academic Year: {context_date.year}
-
-Please analyze the following syllabus text based on this context.
-
---- START OF SYLLABUS TEXT ---
-{text}
---- END OF SYLLABUS TEXT ---
-""".strip()
+    user_prompt_content = (
+        f"Context:\n"
+        f"- Current Date: {context_date.isoformat()}\n"
+        f"- Relevant Academic Year: {context_date.year}\n\n"
+        f"Please analyze the following syllabus text based on this context.\n\n"
+        f"--- START OF SYLLABUS TEXT ---\n"
+        f"{text}\n"
+        f"--- END OF SYLLABUS TEXT ---\n"
+    )
 
     try:
         response = client.chat.completions.create(
@@ -106,7 +102,7 @@ Please analyze the following syllabus text based on this context.
 
 
 # -------------------------------
-# New: Study assets 
+# Study assets (plan + flashcards)
 # -------------------------------
 async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAssets:
     """
@@ -119,11 +115,11 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
         "Output strictly as JSON with this shape:\n"
         "{\n"
         '  "keywords": [string],\n'
-        '  "plan": [{"title": string, "steps": [string], "duration_min": int}],\n'
-        '  "flashcards": [{"front": string, "back": string}]\n'
+        '  "plan": [{"title": "string", "steps": ["string"], "duration_min": 30}],\n'
+        '  "flashcards": [{"front": "string", "back": "string"}]\n'
         "}\n\n"
         "Rules:\n"
-        "- Total study time ~60-120 minutes unless the user asked differently.\n"
+        "- Total study time about 60-120 minutes unless the user asked differently.\n"
         "- Steps are concrete actions (read, outline, test, review).\n"
         "- Flashcards: crisp, factual, one concept per card.\n"
     )
@@ -164,16 +160,17 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
     )
 
 
+# -------------------------------
+# Grounded Q&A
+# -------------------------------
 async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Dict[str, Any]]]:
     """
-    Answers a question using only ctx.summary and ctx.events.
-    Returns (message, extra_data).
+    Answer using ctx.summary and ctx.events; first try raw_text quick facts.
     """
-    # NEW: quick facts directly from raw syllabus text (if we stored it)
     if getattr(ctx, "raw_text", None):
-        qf = _quick_fact_from_text(message, ctx.raw_text or "")
-        if qf:
-            return qf, None
+        hit = _quick_fact_from_text(message, ctx.raw_text or "")
+        if hit:
+            return hit, {"source": "raw_text"}
 
     lines: List[str] = []
     for e in (ctx.events or [])[:40]:
@@ -181,10 +178,11 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
     events_block = "\n".join(lines) if lines else "(no dated events)"
 
     system = (
-        "You answer only from the provided course summary and dated events. "
-        "If you can't find the answer, say what is needed (e.g., 'upload a syllabus' or 'connect Canvas'). "
+        "Answer only from the provided course summary and dated events. "
+        "If not answerable, say briefly what is needed (e.g., upload a syllabus or connect Canvas). "
         "Keep replies to 1-3 sentences."
     )
+
     user = (
         f"SUMMARY:\n{ctx.summary or '(none)'}\n\n"
         f"EVENTS:\n{events_block}\n\n"
@@ -201,3 +199,18 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
     )
     answer = resp.choices[0].message.content.strip()
     return answer, None
+
+
+# -------------------------------
+# General GPT fallback
+# -------------------------------
+async def general_chat(message: str) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Be helpful, concise, and accurate."},
+            {"role": "user", "content": message},
+        ],
+        temperature=0.4,
+    )
+    return resp.choices[0].message.content.strip()
