@@ -1,0 +1,142 @@
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@*  *@
+@if (!HideFab && !isOpen)
+{
+  <button class="se-fab" @onclick="() => { isOpen = true; StateHasChanged(); }" aria-label="Open chat">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12M6 13h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+}
+
+@if (isOpen && !HideFab)
+{
+  <section class="se-chat" role="dialog" aria-label="SchedulEase chat">
+    <header class="se-head">
+      <div class="se-id">
+        <div class="se-avatar">S</div>
+        <div class="se-txt">
+          <div class="se-name">AI assistant</div>
+          <div class="se-sub">SchedulEase</div>
+        </div>
+      </div>
+
+      <div class="se-actions">
+        <button class="se-icon" title="Minimize" @onclick="Minimize" aria-label="Minimize">–</button>
+      </div>
+    </header>
+
+    <div class="se-thread" @ref="msgsHost">
+      @foreach (var m in msgs)
+      {
+        var u = m.Role == "user";
+        <div class="row @(u ? "user" : "bot")">
+          @if (!u) { <div class="chip">SE</div> }
+          <div class="bubble">@m.Text</div>
+        </div>
+        <div class="ts @(u ? "right" : "")">@m.At.ToShortTimeString()</div>
+      }
+    </div>
+
+    <footer class="se-compose">
+      <div class="wrap">
+        <textarea class="input"
+                  @bind="input"
+                  @bind:event="oninput"
+                  placeholder="Type a message…"
+                  @onkeydown="OnKeyDown"></textarea>
+
+        <button class="send" @onclick="SendAsync" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M8 5v14l11-7-11-7z"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="hint">Enter to send • Shift+Enter for newline</div>
+    </footer>
+  </section>
+}
+
+@code {
+  bool isOpen = true;
+  string input = "";
+
+  record ChatMessage(string Role, string Text, DateTime At);
+  List<ChatMessage> msgs = new()
+  {
+    new("assistant","Hey! I’m your SchedulEase assistant. Ask me about assignments, exams, or to build a study plan.", DateTime.Now)
+  };
+
+  ElementReference msgsHost;
+  bool HideFab => Navigation.Uri.Contains("/assistant", StringComparison.OrdinalIgnoreCase);
+
+  protected override void OnInitialized()
+  {
+    Navigation.LocationChanged += async (_, __) =>
+    {
+      StateHasChanged();
+      await ScrollToBottom();
+    };
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender) await ScrollToBottom();
+  }
+
+  void Minimize()
+  {
+    isOpen = false;  
+    StateHasChanged();
+  }
+
+  async Task SendAsync()
+  {
+    var val = (input ?? "").Trim();
+    if (string.IsNullOrEmpty(val)) return;
+
+    msgs.Add(new("user", val, DateTime.Now));
+    input = "";
+    StateHasChanged();
+    await ScrollToBottom();
+
+    try
+    {
+      var turns = msgs.Select(m => new ChatTurn(m.Role == "assistant" ? "assistant" : m.Role, m.Text)).ToList();
+      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns));
+      resp.EnsureSuccessStatusCode();
+
+      var data = await resp.Content.ReadFromJsonAsync<ChatReply>();
+      msgs.Add(new("assistant", data?.reply ?? "(no reply)", DateTime.Now));
+    }
+    catch (Exception ex)
+    {
+      msgs.Add(new("assistant", $"(error contacting server) {ex.Message}", DateTime.Now));
+    }
+
+    StateHasChanged();
+    await ScrollToBottom();
+  }
+
+  async Task OnKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter" && !e.ShiftKey)
+    {
+      await SendAsync();   
+    }
+  }
+
+  async Task ScrollToBottom()
+  {
+    if (msgsHost.Context is not null)
+      await JS.InvokeVoidAsync("SchedulEase.scrollToBottom", msgsHost);
+  }
+
+  public record ChatTurn(string role, string content);
+  public record ChatRequest(List<ChatTurn> messages);
+  public record ChatReply(string reply);
+}

@@ -191,7 +191,7 @@
       var httpResp = await Http.PostAsync("/api/chat/upload", content);
       httpResp.EnsureSuccessStatusCode();
 
-      var okText = $"Syllabus attached. You can now ask “what’s due” or request a study plan.";
+      var okText = $"Syllabus attached."; 
       var idx = _messages.IndexOf(typing);
       if (idx >= 0) _messages[idx] = new ChatMessage("assistant", okText, DateTime.Now);
     }
