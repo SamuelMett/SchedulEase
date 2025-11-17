@@ -66,6 +66,7 @@ oauth.register(
 app.include_router(calendar_api.router)
 app.include_router(chat_router.router, prefix="/api/chat", tags=["Chat API"])
 
+
 @app.get('/', response_class=HTMLResponse)
 async def homepage(request: Request):
     user = request.session.get('user')
@@ -80,10 +81,12 @@ async def homepage(request: Request):
         '''
     return '<h1>Welcome!</h1><a href="/login">Login with Google</a>'
 
+
 @app.get('/login')
 async def login(request: Request):
     redirect_uri = "http://127.0.0.1:8000/auth"
     return await oauth.google.authorize_redirect(request, redirect_uri)
+
 
 @app.get('/auth')
 async def auth(request: Request):
@@ -99,10 +102,12 @@ async def auth(request: Request):
     request.session['token'] = token
     return RedirectResponse(url='/')
 
+
 @app.get('/logout')
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url='/')
+
 
 @app.get('/profile', response_class=HTMLResponse)
 async def profile(request: Request):
@@ -117,6 +122,7 @@ async def profile(request: Request):
         <br><br>
         <a href="/">Home</a>
     """
+
 
 @app.get('/calendar/events')
 async def calendar_events(request: Request):
@@ -154,6 +160,7 @@ async def calendar_events(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not fetch calendar events: {e}")
 
+
 @app.post("/upload-syllabus", response_model=AiAnalysisResult)
 async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     print(f"Processing file: {file.filename}")
@@ -167,17 +174,107 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
         )
     return analysis_result
 
+
+# ---------- AI / Chat Models ----------
+
 client = OpenAI()
+
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str
 
+
 class ChatRequest(BaseModel):
     messages: List[ChatTurn]
 
+
+class ScheduleQuestion(BaseModel):
+    question: str
+
+
 class ChatReply(BaseModel):
     reply: str
+
+
+# ---------- New calendar-aware AI endpoint ----------
+
+@app.post("/schedule-chat", response_model=ChatReply)
+async def schedule_chat(request: Request, q: ScheduleQuestion):
+    """
+    AI that answers questions using Google Calendar events.
+    """
+    # 1. Get the Google token from the session
+    token = request.session.get("token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated with Google")
+
+    # 2. Fetch Google Calendar events (similar to /calendar/events)
+    try:
+        current_year = datetime.now().year
+        start_of_year = datetime(current_year, 1, 1, tzinfo=timezone.utc)
+        time_min_param = start_of_year.isoformat()
+
+        params = {
+            "timeMin": time_min_param,
+            "orderBy": "startTime",
+            "singleEvents": True,
+        }
+
+        resp = await oauth.google.get(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+            token=token,
+            params=params,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not fetch calendar events: {e}",
+        )
+
+    # 3. Convert events to text for the AI
+    events = []
+    for event in data.get("items", []):
+        summary = event.get("summary", "No Title")
+        start_info = event.get("start", {})
+        start_time = start_info.get("dateTime", start_info.get("date", ""))
+        end_info = event.get("end", {})
+        end_time = end_info.get("dateTime", end_info.get("date", ""))
+
+        events.append(f"- {summary} | start: {start_time} | end: {end_time}")
+
+    events_text = "\n".join(events) if events else "No events found."
+
+    # 4. Ask OpenAI using the events + question
+    system_prompt = (
+        "You are SchedulEase, a schedule assistant. "
+        "You will be given the user's Google Calendar events and a question. "
+        "Use ONLY those events to answer schedule questions. "
+        "If an event is not in the list, say you do not see it."
+    )
+
+    user_prompt = (
+        f"Here are the user's calendar events:\n\n"
+        f"{events_text}\n\n"
+        f"User question: {q.question}"
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.2,
+    )
+
+    answer = completion.choices[0].message.content or "I couldn't generate an answer."
+    return ChatReply(reply=answer)
+
+
+# ---------- Existing chat endpoint ----------
 
 @app.post("/chat", response_model=ChatReply)
 async def chat(req: ChatRequest):
@@ -195,5 +292,44 @@ async def chat(req: ChatRequest):
     text = completion.choices[0].message.content or "..."
     return ChatReply(reply=text)
 
+
+@app.post("/schedule-chat-test", response_model=ChatReply)
+async def schedule_chat_test(q: ScheduleQuestion):
+    """
+    Temporary test endpoint that simulates Google Calendar events
+    until real login works.
+    """
+
+    fake_events_text = """
+- CMPS 420 Assignment 3 | start: 2025-11-20T23:59 | end: 2025-11-20T23:59
+- Math Exam | start: 2025-11-22T09:00 | end: 2025-11-22T10:00
+- Group Project Meeting | start: 2025-11-19T14:00 | end: 2025-11-19T15:00
+- Gym | start: 2025-11-20T17:00 | end: 2025-11-20T18:30
+"""
+
+    system_prompt = (
+        "You are SchedulEase, a schedule assistant. "
+        "Use ONLY the provided list of events to answer schedule questions."
+    )
+
+    user_prompt = (
+        f"Here are the user's calendar events:\n\n{fake_events_text}\n\n"
+        f"User question: {q.question}"
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.2,
+    )
+
+    answer = completion.choices[0].message.content
+    return ChatReply(reply=answer)
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
