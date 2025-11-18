@@ -139,3 +139,61 @@ html, body { height: 100%; }
 
 .ai-hint{text-align:center; color:var(--muted); font-size:12px; margin-top:8px;}
 .hint-plus{display:inline-block; width:18px; height:18px; line-height:18px; text-align:center; border-radius:50%; background:var(--brand); color:#fff; font-weight:600;}
+
+/* Pending file chips  */
+.ai-files{
+  display:flex;
+  gap:8px;
+  margin-bottom:8px;
+  overflow-x:auto;
+  padding-bottom:4px;
+}
+
+.ai-file-chip{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#111827;
+  border:1px solid #374151;
+  color:#e5e7eb;
+  flex:0 0 auto;
+  box-shadow:0 6px 16px rgba(15,23,42,.35);
+}
+
+.ai-file-icon{
+  width:20px;
+  height:20px;
+  border-radius:6px;
+  background:#ef4444;
+  display:grid;
+  place-items:center;
+  font-size:11px;
+  color:#fff;
+}
+
+.ai-file-main{
+  display:flex;
+  flex-direction:column;
+}
+
+.ai-file-name{
+  font-size:12px;
+  max-width:140px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.ai-file-remove{
+  border:none;
+  background:transparent;
+  color:#9ca3af;
+  cursor:pointer;
+  font-size:14px;
+  padding:0 0 0 4px;
+}
+.ai-file-remove:hover{
+  color:#f9fafb;
+}

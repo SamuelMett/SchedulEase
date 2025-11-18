@@ -61,6 +61,28 @@
   </section>
 
   <section class="ai-composer">
+
+    @if (_pendingFiles.Count > 0)
+    {
+      <div class="ai-files">
+        @foreach (var file in _pendingFiles)
+        {
+          <div class="ai-file-chip">
+            <div class="ai-file-icon">📄</div>
+            <div class="ai-file-main">
+              <div class="ai-file-name">@file.Name</div>
+            </div>
+            <button type="button"
+                    class="ai-file-remove"
+                    @onclick="@(() => RemovePendingFile(file))"
+                    title="Remove">
+              ✕
+            </button>
+          </div>
+        }
+      </div>
+    }
+
     <div class="pill">
       <label class="pill__plus" for="uploader" title="Add file">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -68,10 +90,12 @@
         </svg>
       </label>
 
+      <!-- ✅ now: multiple files, includes images, just stages them (no upload yet) -->
       <InputFile id="uploader"
                  class="visually-hidden"
-                 OnChange="HandleFileSelected"
-                 accept=".pdf,.doc,.docx,.txt" />
+                 OnChange="HandleFilesSelected"
+                 multiple
+                 accept=".pdf,.doc,.docx,.txt,image/*" />
 
       <!-- text input -->
       <input class="pill__input"
@@ -81,15 +105,14 @@
              @bind:event="oninput"
              @onkeydown="HandleKeyDown" />
 
-     <button class="pill__send"
-        @onclick="OnSend"
-        disabled="@string.IsNullOrWhiteSpace(_input)"
-        title="Send">
-  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M2 21L23 12 2 3l4.7 8L2 21zm6.2-5.6l1.9-1.9 6.4-1.5-6.4-1.5-1.9-1.9 1.9 3.4-1.9 3.4z" fill="currentColor"/>
-  </svg>
-</button>
-
+      <button class="pill__send"
+              @onclick="OnSend"
+              disabled="@(_pendingFiles.Count == 0 && string.IsNullOrWhiteSpace(_input))"
+              title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2 21L23 12 2 3l4.7 8L2 21zm6.2-5.6l1.9-1.9 6.4-1.5-6.4-1.5-1.9-1.9 1.9 3.4-1.9 3.4z" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
 
     <div class="ai-hint">Press <kbd>Enter</kbd> to send • Click <span class="hint-plus">+</span> to add file</div>
@@ -102,6 +125,11 @@
   private string _input = string.Empty;
 
   private readonly string _sessionId = Guid.NewGuid().ToString("N");
+
+  private const long MaxUploadSize = 20 * 1024 * 1024; // 20 MB
+
+  // ✅ files staged like ChatGPT chips
+  private readonly List<IBrowserFile> _pendingFiles = new();
 
   private sealed class ChatSendRequest
   {
@@ -126,7 +154,8 @@
 
   private async Task HandleKeyDown(KeyboardEventArgs e)
   {
-    if (e.Key == "Enter" && !e.ShiftKey && !string.IsNullOrWhiteSpace(_input))
+    if (e.Key == "Enter" && !e.ShiftKey &&
+        (!string.IsNullOrWhiteSpace(_input) || _pendingFiles.Count > 0))
     {
       await OnSend();
     }
@@ -135,9 +164,23 @@
   private async Task OnSend()
   {
     var text = _input?.Trim();
-    if (string.IsNullOrWhiteSpace(text)) return;
 
-    _messages.Add(new ChatMessage("user", text, DateTime.Now));
+    // nothing to send
+    if (string.IsNullOrWhiteSpace(text) && _pendingFiles.Count == 0)
+      return;
+
+    // Build the user bubble text
+    string bubbleText = text ?? string.Empty;
+    if (_pendingFiles.Count > 0)
+    {
+      var attachmentLine = $"📎 {_pendingFiles.Count} attachment(s)";
+      if (string.IsNullOrWhiteSpace(bubbleText))
+        bubbleText = attachmentLine;
+      else
+        bubbleText = $"{bubbleText}\n\n{attachmentLine}";
+    }
+
+    _messages.Add(new ChatMessage("user", bubbleText, DateTime.Now));
     _input = string.Empty;
 
     var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
@@ -146,7 +189,27 @@
 
     try
     {
-      var req = new ChatSendRequest { SessionId = _sessionId, Message = text };
+      // ✅ 1) upload any staged files first (like ChatGPT)
+      foreach (var file in _pendingFiles)
+      {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(_sessionId), "session_id");
+
+        using var stream = file.OpenReadStream(MaxUploadSize);
+        var fileContent = new StreamContent(stream);
+        fileContent.Headers.ContentType =
+          new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
+        content.Add(fileContent, "file", file.Name);
+
+        var uploadResp = await Http.PostAsync("/api/chat/upload", content);
+        uploadResp.EnsureSuccessStatusCode();
+      }
+
+      // Clear chips after successful upload
+      _pendingFiles.Clear();
+
+      // ✅ 2) now send the message itself
+      var req = new ChatSendRequest { SessionId = _sessionId, Message = text ?? string.Empty };
       var httpResp = await Http.PostAsJsonAsync("/api/chat/send", req);
       httpResp.EnsureSuccessStatusCode();
 
@@ -166,42 +229,26 @@
     StateHasChanged();
   }
 
-  private async Task HandleFileSelected(InputFileChangeEventArgs e)
+  // ✅ just stage files, don't upload yet
+  private Task HandleFilesSelected(InputFileChangeEventArgs e)
   {
-    var file = e.File;
-    if (file is null) return;
+    // how many more we can add (limit 5)
+    var remaining = Math.Max(0, 5 - _pendingFiles.Count);
+    if (remaining == 0) return Task.CompletedTask;
 
-    _messages.Add(new ChatMessage("user", $"📎 {file.Name}", DateTime.Now));
+    var files = e.GetMultipleFiles(remaining);
+    foreach (var f in files)
+    {
+      _pendingFiles.Add(f);
+    }
 
-    var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
-    _messages.Add(typing);
     StateHasChanged();
+    return Task.CompletedTask;
+  }
 
-    try
-    {
-      using var content = new MultipartFormDataContent();
-      content.Add(new StringContent(_sessionId), "session_id");
-
-      const long max = 20 * 1024 * 1024;
-      using var stream = file.OpenReadStream(max);
-      var fileContent = new StreamContent(stream);
-      fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
-      content.Add(fileContent, "file", file.Name);
-
-      var httpResp = await Http.PostAsync("/api/chat/upload", content);
-      httpResp.EnsureSuccessStatusCode();
-
-      var okText = $"Syllabus attached."; 
-      var idx = _messages.IndexOf(typing);
-      if (idx >= 0) _messages[idx] = new ChatMessage("assistant", okText, DateTime.Now);
-    }
-    catch (Exception ex)
-    {
-      var idx = _messages.IndexOf(typing);
-      if (idx >= 0) _messages[idx] = new ChatMessage("assistant",
-        $"Upload failed: {ex.Message}", DateTime.Now);
-    }
-
+  private void RemovePendingFile(IBrowserFile file)
+  {
+    _pendingFiles.Remove(file);
     StateHasChanged();
   }
 }
