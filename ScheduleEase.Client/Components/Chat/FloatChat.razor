@@ -3,12 +3,11 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-@*  *@
 @if (!HideFab && !isOpen)
 {
   <button class="se-fab" @onclick="() => { isOpen = true; StateHasChanged(); }" aria-label="Open chat">
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12M6 13h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12M6 13h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
     </svg>
   </button>
 }
@@ -48,12 +47,26 @@
                   @bind="input"
                   @bind:event="oninput"
                   placeholder="Type a message…"
+                  disabled="@isStreaming"
                   @onkeydown="OnKeyDown"></textarea>
 
-        <button class="send" @onclick="SendAsync" aria-label="Send">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M8 5v14l11-7-11-7z"></path>
-          </svg>
+        <button class="send"
+                @onclick="OnSendOrPauseAsync"
+                aria-label="@(isStreaming ? "Pause" : "Send")">
+          @if (!isStreaming)
+          {
+            <!-- Send icon -->
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M8 5v14l11-7-11-7z"></path>
+            </svg>
+          }
+          else
+          {
+            <!-- Pause icon -->
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
+            </svg>
+          }
         </button>
       </div>
     </footer>
@@ -62,6 +75,7 @@
 
 @code {
   bool isOpen = true;
+  bool isStreaming = false;
   string input = "";
 
   record ChatMessage(string Role, string Text, DateTime At);
@@ -71,6 +85,7 @@
   };
 
   ElementReference msgsHost;
+  CancellationTokenSource? _cts;
   bool HideFab => Navigation.Uri.Contains("/assistant", StringComparison.OrdinalIgnoreCase);
 
   protected override void OnInitialized()
@@ -89,43 +104,72 @@
 
   void Minimize()
   {
-    isOpen = false;  
+    isOpen = false;
     StateHasChanged();
+  }
+
+  async Task OnSendOrPauseAsync()
+  {
+    if (isStreaming)
+    {
+      _cts?.Cancel();
+      return;
+    }
+
+    await SendAsync();
   }
 
   async Task SendAsync()
   {
     var val = (input ?? "").Trim();
-    if (string.IsNullOrEmpty(val)) return;
+    if (string.IsNullOrEmpty(val) || isStreaming) return;
 
     msgs.Add(new("user", val, DateTime.Now));
     input = "";
     StateHasChanged();
     await ScrollToBottom();
 
+    _cts?.Dispose();
+    _cts = new CancellationTokenSource();
+    var token = _cts.Token;
+
+    isStreaming = true;
+
     try
     {
       var turns = msgs.Select(m => new ChatTurn(m.Role == "assistant" ? "assistant" : m.Role, m.Text)).ToList();
-      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns));
+
+      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns), token);
       resp.EnsureSuccessStatusCode();
 
-      var data = await resp.Content.ReadFromJsonAsync<ChatReply>();
-      msgs.Add(new("assistant", data?.reply ?? "(no reply)", DateTime.Now));
+      var data = await resp.Content.ReadFromJsonAsync<ChatReply>(cancellationToken: token);
+
+      if (!token.IsCancellationRequested && data is not null)
+      {
+        msgs.Add(new("assistant", data.reply ?? "(no reply)", DateTime.Now));
+      }
+    }
+    catch (TaskCanceledException)
+    {
+      // paused by user; no reply added
     }
     catch (Exception ex)
     {
       msgs.Add(new("assistant", $"(error contacting server) {ex.Message}", DateTime.Now));
     }
-
-    StateHasChanged();
-    await ScrollToBottom();
+    finally
+    {
+      isStreaming = false;
+      StateHasChanged();
+      await ScrollToBottom();
+    }
   }
 
   async Task OnKeyDown(KeyboardEventArgs e)
   {
-    if (e.Key == "Enter" && !e.ShiftKey)
+    if (e.Key == "Enter" && !e.ShiftKey && !isStreaming)
     {
-      await SendAsync();   
+      await SendAsync();
     }
   }
 

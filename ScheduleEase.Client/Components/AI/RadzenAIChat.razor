@@ -1,9 +1,10 @@
 @using Microsoft.AspNetCore.Components.Web
 @using Radzen
 @using Radzen.Blazor
+@using System.Net.Http.Json
+@inject HttpClient Http
 
 <div class="rz-p-0" style="display:flex; flex-direction:column; height:100%;">
-  <!-- header -->
   <div class="rz-p-2 rz-d-flex rz-justify-between rz-align-center" style="gap:.5rem;">
     <div class="rz-d-flex rz-align-center" style="gap:.5rem;">
       <RadzenIcon Icon="smart_toy" class="rz-text-primary" />
@@ -37,9 +38,14 @@
               @AssistantAvatarText
             </div>
           }
-          <div class="rz-card" style="max-width:72%; background:@(isUser ? "#2563eb" : "#111827"); color:@(isUser ? "#fff" : "#e5e7eb"); border:none; border-radius:14px; padding:10px 12px;">
+
+          <div class="rz-card"
+               style="max-width:72%; background:@(isUser ? "#2563eb" : "#111827");
+                      color:@(isUser ? "#fff" : "#e5e7eb");
+                      border:none; border-radius:14px; padding:10px 12px;">
             @m.Content
           </div>
+
           @if (isUser)
           {
             <div class="rz-d-flex rz-align-center rz-justify-center"
@@ -60,11 +66,13 @@
                     Disabled="@(Disabled || IsLoading)"
                     ReadOnly="@(ReadOnly || IsLoading)"
                     Class="rz-flex-1"
-                    style="min-height:44px; max-height:140px; background:#0f141b; color:#e6edf6; border-color:#1f2a37;" />
-    <RadzenButton Icon="send"
+                    style="min-height:44px; max-height:140px; background:#0f141b;
+                           color:#e6edf6; border-color:#1f2a37;" />
+
+    <RadzenButton Icon="@(IsLoading ? "pause" : "send")"
                   ButtonStyle="ButtonStyle.Primary"
-                  Disabled="@(IsLoading || string.IsNullOrWhiteSpace(CurrentInput))"
-                  Click="OnSendMessage" />
+                  Disabled="@( !IsLoading && string.IsNullOrWhiteSpace(CurrentInput) )"
+                  Click="OnPrimaryButtonClick" />
   </div>
 </div>
 
@@ -83,8 +91,12 @@
   private string CurrentInput = string.Empty;
   private bool IsLoading = false;
   private ElementReference messagesContainer;
+  private CancellationTokenSource? _cts;
 
   private record ChatMessage(string Content, bool IsUser, DateTime At);
+  public record ChatTurn(string role, string content);
+  public record ChatRequest(List<ChatTurn> messages);
+  public record ChatReply(string reply);
 
   private async Task OnClearChat()
   {
@@ -93,24 +105,65 @@
     await InvokeAsync(StateHasChanged);
   }
 
+  private async Task OnPrimaryButtonClick()
+  {
+    if (IsLoading)
+    {
+      _cts?.Cancel();
+      IsLoading = false;
+      await InvokeAsync(StateHasChanged);
+      return;
+    }
+
+    await OnSendMessage();
+  }
+
   private async Task OnSendMessage()
   {
     var text = (CurrentInput ?? string.Empty).Trim();
-    if (string.IsNullOrEmpty(text) || IsLoading || Disabled || ReadOnly) return;
+    if (string.IsNullOrWhiteSpace(text) || IsLoading || Disabled || ReadOnly)
+      return;
 
     Messages.Add(new ChatMessage(text, true, DateTime.Now));
     CurrentInput = string.Empty;
     await InvokeAsync(StateHasChanged);
     await ScrollToBottom();
 
-    // dummy “AI” (swap with real backend later)
-    IsLoading = true;
-    await Task.Delay(250);
-    Messages.Add(new ChatMessage(Reply(text), false, DateTime.Now));
-    IsLoading = false;
+    _cts?.Dispose();
+    _cts = new CancellationTokenSource();
+    var token = _cts.Token;
 
-    await InvokeAsync(StateHasChanged);
-    await ScrollToBottom();
+    IsLoading = true;
+
+    try
+    {
+      var turns = Messages
+        .Select(m => new ChatTurn(m.IsUser ? "user" : "assistant", m.Content))
+        .ToList();
+
+      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns), token);
+      resp.EnsureSuccessStatusCode();
+
+      var data = await resp.Content.ReadFromJsonAsync<ChatReply>(cancellationToken: token);
+
+      if (!token.IsCancellationRequested && data is not null)
+      {
+        Messages.Add(new ChatMessage(data.reply ?? "(no reply)", false, DateTime.Now));
+      }
+    }
+    catch (TaskCanceledException)
+    {
+    }
+    catch (Exception ex)
+    {
+      Messages.Add(new ChatMessage($"(error contacting server) {ex.Message}", false, DateTime.Now));
+    }
+    finally
+    {
+      IsLoading = false;
+      await InvokeAsync(StateHasChanged);
+      await ScrollToBottom();
+    }
   }
 
   private async Task OnKeyDown(KeyboardEventArgs e)
@@ -124,27 +177,6 @@
   private async Task ScrollToBottom()
   {
     await Task.Delay(10);
-    try
-    {
-      await messagesContainer.FocusAsync();
-    }
-    catch {  }
-  }
-
-  // dummy replies
-  private static string Reply(string t)
-  {
-    var low = (t ?? "").ToLowerInvariant();
-    if (low.Contains("schedule") || low.Contains("plan"))
-      return "Here’s a sample plan:\n• 8:00 — CS\n• 11:00 — Project\n• 2:00 — Lunch\n• 3:00 — Study";
-    if (low.Contains("assignment") || low.Contains("homework"))
-      return "You have 3 items:\n• AI Lab 4 (Fri)\n• UX Report (Sun)\n• DBMS Project (Tue)";
-    if (low.Contains("exam") || low.Contains("test"))
-      return "Next exam: CMPS 383 — Tue 9:00 AM.";
-    if (low.Contains("hello") || low.Contains("hi"))
-      return "Hey! How can I help today?";
-    if (low.Contains("thank"))
-      return "No problem!";
-    return "Try asking about your schedule, exams, or assignments.";
+    try { await messagesContainer.FocusAsync(); } catch { }
   }
 }
