@@ -1,13 +1,19 @@
 @using System.Net.Http.Json
+@using System.Text.Json
+@using System.Text.Json.Serialization
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
+@* Mini FAB button *@
 @if (!HideFab && !isOpen)
 {
-  <button class="se-fab" @onclick="() => { isOpen = true; StateHasChanged(); }" aria-label="Open chat">
+  <button class="se-fab"
+          @onclick="() => { isOpen = true; StateHasChanged(); }"
+          aria-label="Open chat">
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12M6 13h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 9h12M6 13h8"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
     </svg>
   </button>
 }
@@ -34,7 +40,10 @@
       {
         var u = m.Role == "user";
         <div class="row @(u ? "user" : "bot")">
-          @if (!u) { <div class="chip">SE</div> }
+          @if (!u)
+          {
+            <div class="chip">SE</div>
+          }
           <div class="bubble">@m.Text</div>
         </div>
         <div class="ts @(u ? "right" : "")">@m.At.ToShortTimeString()</div>
@@ -47,26 +56,13 @@
                   @bind="input"
                   @bind:event="oninput"
                   placeholder="Type a message…"
-                  disabled="@isStreaming"
-                  @onkeydown="OnKeyDown"></textarea>
+                  @onkeydown="OnKeyDown">
+        </textarea>
 
-        <button class="send"
-                @onclick="OnSendOrPauseAsync"
-                aria-label="@(isStreaming ? "Pause" : "Send")">
-          @if (!isStreaming)
-          {
-            <!-- Send icon -->
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M8 5v14l11-7-11-7z"></path>
-            </svg>
-          }
-          else
-          {
-            <!-- Pause icon -->
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
-            </svg>
-          }
+        <button class="send" @onclick="SendAsync" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M8 5v14l11-7-11-7z"></path>
+          </svg>
         </button>
       </div>
     </footer>
@@ -75,18 +71,32 @@
 
 @code {
   bool isOpen = true;
-  bool isStreaming = false;
   string input = "";
+  string sessionId = Guid.NewGuid().ToString("N");
 
   record ChatMessage(string Role, string Text, DateTime At);
   List<ChatMessage> msgs = new()
   {
-    new("assistant","Hey! I’m your SchedulEase assistant. Ask me about assignments, exams, or to build a study plan.", DateTime.Now)
+    new("assistant",
+        "Hey! I’m your SchedulEase assistant. Ask me about assignments, exams, or to build a study plan.",
+        DateTime.Now)
   };
 
   ElementReference msgsHost;
-  CancellationTokenSource? _cts;
   bool HideFab => Navigation.Uri.Contains("/assistant", StringComparison.OrdinalIgnoreCase);
+
+  private sealed class ChatSendRequestDto
+  {
+    [JsonPropertyName("session_id")] public string SessionId { get; set; } = default!;
+    [JsonPropertyName("message")]    public string Message   { get; set; } = default!;
+  }
+
+  private sealed class ChatResponseDto
+  {
+    [JsonPropertyName("type")]    public string Type    { get; set; } = "";
+    [JsonPropertyName("message")] public string Message { get; set; } = "";
+    [JsonPropertyName("data")]    public JsonElement? Data { get; set; }
+  }
 
   protected override void OnInitialized()
   {
@@ -99,7 +109,10 @@
 
   protected override async Task OnAfterRenderAsync(bool firstRender)
   {
-    if (firstRender) await ScrollToBottom();
+    if (firstRender)
+    {
+      await ScrollToBottom();
+    }
   }
 
   void Minimize()
@@ -108,66 +121,47 @@
     StateHasChanged();
   }
 
-  async Task OnSendOrPauseAsync()
-  {
-    if (isStreaming)
-    {
-      _cts?.Cancel();
-      return;
-    }
-
-    await SendAsync();
-  }
-
   async Task SendAsync()
   {
     var val = (input ?? "").Trim();
-    if (string.IsNullOrEmpty(val) || isStreaming) return;
+    if (string.IsNullOrEmpty(val))
+      return;
 
     msgs.Add(new("user", val, DateTime.Now));
     input = "";
     StateHasChanged();
     await ScrollToBottom();
 
-    _cts?.Dispose();
-    _cts = new CancellationTokenSource();
-    var token = _cts.Token;
-
-    isStreaming = true;
-
     try
     {
-      var turns = msgs.Select(m => new ChatTurn(m.Role == "assistant" ? "assistant" : m.Role, m.Text)).ToList();
+      var req = new ChatSendRequestDto
+      {
+        SessionId = sessionId,
+        Message   = val
+      };
 
-      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns), token);
+      var resp = await Http.PostAsJsonAsync("/api/chat/send", req);
       resp.EnsureSuccessStatusCode();
 
-      var data = await resp.Content.ReadFromJsonAsync<ChatReply>(cancellationToken: token);
+      var payload = await resp.Content.ReadFromJsonAsync<ChatResponseDto>();
+      var replyText = payload?.Message ?? "(no reply)";
 
-      if (!token.IsCancellationRequested && data is not null)
-      {
-        msgs.Add(new("assistant", data.reply ?? "(no reply)", DateTime.Now));
-      }
-    }
-    catch (TaskCanceledException)
-    {
-      // paused by user; no reply added
+      msgs.Add(new("assistant", replyText, DateTime.Now));
     }
     catch (Exception ex)
     {
-      msgs.Add(new("assistant", $"(error contacting server) {ex.Message}", DateTime.Now));
+      msgs.Add(new("assistant",
+        $"Sorry, I couldn’t reach the server. {ex.Message}",
+        DateTime.Now));
     }
-    finally
-    {
-      isStreaming = false;
-      StateHasChanged();
-      await ScrollToBottom();
-    }
+
+    StateHasChanged();
+    await ScrollToBottom();
   }
 
   async Task OnKeyDown(KeyboardEventArgs e)
   {
-    if (e.Key == "Enter" && !e.ShiftKey && !isStreaming)
+    if (e.Key == "Enter" && !e.ShiftKey)
     {
       await SendAsync();
     }
@@ -176,10 +170,8 @@
   async Task ScrollToBottom()
   {
     if (msgsHost.Context is not null)
+    {
       await JS.InvokeVoidAsync("SchedulEase.scrollToBottom", msgsHost);
+    }
   }
-
-  public record ChatTurn(string role, string content);
-  public record ChatRequest(List<ChatTurn> messages);
-  public record ChatReply(string reply);
 }
