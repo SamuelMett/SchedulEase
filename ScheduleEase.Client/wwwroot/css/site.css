@@ -9,10 +9,35 @@ html, body {
     line-height: 1.6;
     height: 100%;
     overflow-x: hidden;
-    overflow-y: auto; /* single scrollbar */
+    overflow-y: auto;
 }
 
-/* Allow Radzen containers to expand naturally */
+/* === Login/Signup Page Wrapper === */
+.login-page-wrapper,
+.signup-page-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+}
+
+/* Force card centering */
+.login-page-wrapper .rz-card,
+.signup-page-wrapper .rz-card {
+    max-width: 450px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+}
+
+/* === Default Layout === */
 .rz-layout,
 .rz-body,
 .rz-main,
@@ -23,11 +48,15 @@ html, body {
     overflow-y: visible !important;
 }
 
-/* Ensure main content expands with page */
 .main-content {
     display: block;
     min-height: 100vh;
     overflow: visible;
+}
+
+/* === Navigation Bar Hover Effects === */
+.rz-link:hover {
+    color: #2563eb !important;
 }
 
 /* === Added to match Home.razor === */
@@ -55,7 +84,7 @@ html, body {
 /* === Section Layout === */
 .section {
     width: 100%;
-    padding: 1.5rem 0; /* tighter spacing */
+    padding: 1.5rem 0;
 }
 
 .content {
@@ -69,11 +98,11 @@ html, body {
     gap: 1rem;
 }
 
-    .content.center {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.75rem;
-    }
+.content.center {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+}
 
 /* === Hero Section === */
 .hero {
@@ -145,7 +174,7 @@ html, body {
 
 .hero-subtitle {
     text-align: center;
-    color: #374151; /* optional for readability */
+    color: #374151;
     max-width: 650px;
     margin: 0 auto;
 }
@@ -162,7 +191,6 @@ html, body {
     max-width: 650px;
 }
 
-/* Single row for features */
 .card-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -180,10 +208,10 @@ html, body {
     transition: all 0.2s ease;
 }
 
-    .feature-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 5px 14px rgba(0, 0, 0, 0.08);
-    }
+.feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.08);
+}
 
 /* === Steps Section === */
 .steps {
@@ -195,7 +223,7 @@ html, body {
     display: flex;
     gap: 2rem;
     justify-content: center;
-    flex-wrap: nowrap; /* single row */
+    flex-wrap: nowrap;
 }
 
 .step {
@@ -273,9 +301,9 @@ button, .rz-button {
     transition: all 0.2s ease-in-out;
 }
 
-    button:hover, .rz-button:hover {
-        transform: translateY(-1px);
-    }
+button:hover, .rz-button:hover {
+    transform: translateY(-1px);
+}
 
 /* === Header Styling === */
 .main-header {
@@ -294,11 +322,38 @@ button, .rz-button {
     transition: color 0.2s ease;
 }
 
-    .nav-link:hover {
-        color: #2563eb;
-    }
+.nav-link:hover {
+    color: #2563eb;
+}
 
 .brand-title {
     font-weight: 700;
     color: #111827;
+}
+
+/* Login Card Styling */
+.login-card {
+    max-width: 450px !important;
+    width: 100% !important;
+    padding: 2.5rem !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    margin: 0 auto !important;
+}
+
+/* Signup Card Styling */
+.signup-card {
+    max-width: 450px !important;
+    width: 100% !important;
+    padding: 2.5rem !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    margin: 0 auto !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .card-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }

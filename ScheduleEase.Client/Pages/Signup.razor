@@ -1,5 +1,121 @@
-﻿<h3>Signup</h3>
+﻿@page "/signup"
+@using SchedulEase.Services
+@using SchedulEase.Models
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="signup-page-wrapper">
+    <RadzenCard Class="signup-card">
+        
+        <!-- Header -->
+        <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0.5rem" Class="rz-mb-4">
+            <RadzenText Text="SchedulEase" TextStyle="TextStyle.H3" Style="color: #667eea; font-weight: 700;" />
+            <RadzenText Text="Create your account" TextStyle="TextStyle.Body1" Style="color: #6b7280;" />
+        </RadzenStack>
+
+        <!-- Error Message -->
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mb-4">
+                @errorMessage
+            </RadzenAlert>
+        }
+
+        <!-- Success Message -->
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter" Class="rz-mb-4">
+                @successMessage
+            </RadzenAlert>
+        }
+
+        <!-- Sign Up Form -->
+        <RadzenStack Gap="1.25rem">
+            <RadzenText Text="Create Account" TextStyle="TextStyle.H5" Style="text-align: center;" />
+
+            <RadzenFormField Text="Full Name" Variant="Variant.Outlined">
+                <RadzenTextBox @bind-Value="fullName" Placeholder="Enter your full name" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Email" Variant="Variant.Outlined">
+                <RadzenTextBox @bind-Value="email" Placeholder="Enter your email" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Password" Variant="Variant.Outlined">
+                <RadzenPassword @bind-Value="password" Placeholder="Create a password" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenFormField Text="Confirm Password" Variant="Variant.Outlined">
+                <RadzenPassword @bind-Value="confirmPassword" Placeholder="Confirm your password" Style="width: 100%;" />
+            </RadzenFormField>
+
+            <RadzenButton Text="Sign Up" ButtonStyle="ButtonStyle.Primary" Style="width: 100%;" Click="HandleSignUp" />
+
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="0.5rem">
+                <RadzenText Text="Already have an account?" TextStyle="TextStyle.Body2" Style="color: #6b7280;" />
+                <RadzenLink Text="Sign In" Path="/login" Style="font-weight: 600; cursor: pointer;" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenCard>
+</div>
 
 @code {
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string fullName = string.Empty;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
 
+    private void HandleSignUp()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            errorMessage = "Please enter your full name.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            errorMessage = "Please enter your email.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Please enter a password.";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        if (password.Length < 6)
+        {
+            errorMessage = "Password must be at least 6 characters long.";
+            return;
+        }
+
+        if (AuthService.SignUp(email, password, fullName))
+        {
+            successMessage = "Account created successfully! Redirecting...";
+            Navigation.NavigateTo("/home");
+        }
+        else
+        {
+            errorMessage = "An account with this email already exists.";
+        }
+    }
+
+    private void ClearMessages()
+    {
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+    }
 }
