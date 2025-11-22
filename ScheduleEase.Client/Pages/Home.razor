@@ -20,6 +20,7 @@
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
                 <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
+                <RadzenButton Text="Connect Calendar" Icon="calendar_today" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Secondary" Click="OnConnectCalendarClick" />
             </RadzenStack>
         </RadzenStack>
 
@@ -98,7 +99,8 @@
 
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
             <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
-            <RadzenButton Text="View Calendar" Icon="calendar_today" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Secondary" Click="OnViewCalendarClick" />
+            <RadzenButton Text="Connect Calendar" Icon="calendar_today" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Secondary" Click="OnConnectCalendarClick" />
+            <RadzenButton Text="View Calendar" Icon="calendar_month" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" Click="OnViewCalendarClick" />
             <RadzenButton Text="AI Assistant" Icon="psychology" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" />
         </RadzenStack>
     </RadzenStack>
@@ -110,13 +112,16 @@
 
     async Task OnImportSyllabusClick()
     {
-        // Navigate within Blazor
         NavigationManager.NavigateTo("/import");
+    }
+
+    async Task OnConnectCalendarClick()
+    {
+        NavigationManager.NavigateTo("/calendar");
     }
 
     async Task OnViewCalendarClick()
     {
-        // Opens the external calendar in a new tab
-        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:7070/calendar");
+        NavigationManager.NavigateTo("/calendar");
     }
 }
