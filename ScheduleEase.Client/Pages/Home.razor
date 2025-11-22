@@ -1,5 +1,4 @@
-﻿@page "/"
-
+﻿@page "/home"
 
 <!-- Hero Section -->
 <div class="full-width-section hero-bg">
@@ -21,7 +20,7 @@
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center" FlexWrap="FlexWrap.Wrap">
                 <RadzenButton Text="Upload Syllabus" Icon="upload" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Primary" Click="OnImportSyllabusClick" />
-                <RadzenButton Text="Connect Google Account" Icon="login" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Secondary" Click="OnConnectClick" />
+                <RadzenButton Text="Connect Calendar" Icon="calendar_today" Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Secondary" Click="OnConnectCalendarClick" />
             </RadzenStack>
         </RadzenStack>
 
@@ -114,22 +113,19 @@
     [Inject] NavigationManager NavigationManager { get; set; }
     [Inject] IJSRuntime JSRuntime { get; set; }
 
-    async Task OnConnectClick()
-    {
-        // Opens Google login in a new tab
-        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:8000/login");
-    }
-
     async Task OnImportSyllabusClick()
     {
-        // Navigate within Blazor
         NavigationManager.NavigateTo("/import");
+    }
+
+    async Task OnConnectCalendarClick()
+    {
+        NavigationManager.NavigateTo("/calendar");
     }
 
     async Task OnViewCalendarClick()
     {
-        // Opens the external calendar in a new tab
-        await JSRuntime.InvokeVoidAsync("openInNewTab", "http://127.0.0.1:7070/calendar");
+        NavigationManager.NavigateTo("/calendar");
     }
 
     void OnAssistantClick()

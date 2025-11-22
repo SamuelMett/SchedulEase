@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Http; // Required for SetBrows
 using ScheduleEase.Client;
 using Radzen; // Add this
 using Microsoft.Extensions.Http;
+using SchedulEase.Services; // Add this for AuthService
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -28,5 +29,6 @@ builder.Services.AddScoped<DialogService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TooltipService>();
 builder.Services.AddScoped<ContextMenuService>();
+builder.Services.AddSingleton<AuthService>();
 
 await builder.Build().RunAsync();
