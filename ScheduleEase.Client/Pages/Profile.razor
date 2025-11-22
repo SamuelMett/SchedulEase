@@ -1,0 +1,206 @@
+@page "/profile"
+@using SchedulEase.Services
+@using SchedulEase.Models
+@using Radzen
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="profile-container">
+    <RadzenCard Class="profile-card">
+        <!-- Header Section -->
+        <div class="profile-header">
+            <RadzenText Text="My Profile" TextStyle="TextStyle.H4" Style="font-weight: 700; color: #111827;" />
+        </div>
+
+        <!-- Profile Picture & Basic Info Section -->
+        <div class="profile-section">
+            <div class="profile-picture-section">
+                <!-- Profile Picture -->
+                <div class="profile-picture-wrapper">
+                    @if (!string.IsNullOrEmpty(profilePicture))
+                    {
+                        <img src="@profilePicture" alt="Profile Picture" class="profile-picture" />
+                    }
+                    else
+                    {
+                        <div class="profile-picture-placeholder">
+                            <RadzenIcon Icon="person" Style="font-size: 3rem; color: #667eea;" />
+                        </div>
+                    }
+                </div>
+
+                <!-- Upload Picture Button -->
+                <div class="upload-section">
+                    <RadzenFileUpload Accept="image/*" MaxFileSize="5242880" 
+                        Style="width: 100%;" 
+                        Change="@OnFileUpload" 
+                        Text="Upload Picture" 
+                        Class="upload-button" />
+                    <RadzenText Text="Max 5MB • JPG, PNG, GIF" TextStyle="TextStyle.Caption" Style="color: #6b7280; margin-top: 0.25rem;" />
+                </div>
+            </div>
+
+            <!-- User Info Display -->
+            <div class="profile-info">
+                <div class="info-item">
+                    <RadzenText Text="Name" TextStyle="TextStyle.Overline" Style="color: #6b7280; font-weight: 600;" />
+                    <RadzenText Text="@(AuthService.CurrentUser?.FullName ?? "N/A")" TextStyle="TextStyle.H6" Style="color: #111827; font-weight: 600;" />
+                </div>
+
+                <div class="info-item">
+                    <RadzenText Text="Email" TextStyle="TextStyle.Overline" Style="color: #6b7280; font-weight: 600;" />
+                    <RadzenText Text="@(AuthService.CurrentUser?.Email ?? "N/A")" TextStyle="TextStyle.Body2" Style="color: #374151;" />
+                </div>
+
+                <div class="info-item">
+                    <RadzenText Text="Member Since" TextStyle="TextStyle.Overline" Style="color: #6b7280; font-weight: 600;" />
+                    <RadzenText Text="@(AuthService.CurrentUser?.CreatedAt.ToString("MMMM dd, yyyy") ?? "N/A")" TextStyle="TextStyle.Body2" Style="color: #374151;" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons Section -->
+        <div class="profile-actions">
+            <RadzenButton Text="View Calendar" Icon="calendar_today" ButtonStyle="ButtonStyle.Primary" 
+                Click="@(() => Navigation.NavigateTo("/calendar"))" Style="width: 100%;" />
+            <RadzenButton Text="Import Files" Icon="upload_file" ButtonStyle="ButtonStyle.Secondary" 
+                Click="@(() => Navigation.NavigateTo("/import"))" Style="width: 100%;" />
+        </div>
+
+        <!-- Editable Fields Section -->
+        <RadzenCard Style="background: #f9fafb; border: 1px solid #e5e7eb; margin-top: 1.5rem;">
+            <RadzenText Text="Profile Settings" TextStyle="TextStyle.H6" Style="font-weight: 600; margin-bottom: 1rem;" />
+
+            <RadzenStack Gap="1rem">
+                <RadzenFormField Text="Phone Number" Variant="Variant.Outlined">
+                    <RadzenTextBox @bind-value="phoneNumber" Placeholder="Enter your phone number" Style="width: 100%;" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="Bio" Variant="Variant.Outlined">
+                    <RadzenTextArea @bind-value="bio" Placeholder="Tell us about yourself" Style="width: 100%; height: 100px;" />
+                </RadzenFormField>
+
+                <div class="button-group">
+                    <RadzenButton Text="Save Changes" ButtonStyle="ButtonStyle.Success" Click="@SaveProfile" Icon="save" />
+                    <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="@ResetProfile" Icon="close" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Success" Variant="Variant.Flat" Shade="Shade.Lighter">
+                        @successMessage
+                    </RadzenAlert>
+                }
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter">
+                        @errorMessage
+                    </RadzenAlert>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <!-- Account Actions Section -->
+        <RadzenCard Style="background: #fef2f2; border: 1px solid #fee2e2; margin-top: 1.5rem;">
+            <RadzenText Text="Account Actions" TextStyle="TextStyle.H6" Style="font-weight: 600; margin-bottom: 1rem; color: #991b1b;" />
+
+            <RadzenStack Gap="0.75rem">
+                <RadzenButton Text="Change Password" ButtonStyle="ButtonStyle.Warning" Style="width: 100%;" />
+                <RadzenButton Text="Sign Out" ButtonStyle="ButtonStyle.Danger" Click="@HandleSignOut" Icon="logout" Style="width: 100%;" />
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenCard>
+</div>
+
+@code {
+    private string phoneNumber = string.Empty;
+    private string bio = string.Empty;
+    private string profilePicture = string.Empty;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var user = AuthService.CurrentUser;
+        if (user != null)
+        {
+            phoneNumber = user.PhoneNumber ?? string.Empty;
+            bio = user.Bio ?? string.Empty;
+            profilePicture = user.ProfilePicture ?? string.Empty;
+        }
+    }
+
+    private async Task OnFileUpload(UploadChangeEventArgs args)
+    {
+        try
+        {
+            foreach (var file in args.Files)
+            {
+                if (file.Size > 5242880) // 5MB
+                {
+                    errorMessage = "File size exceeds 5MB limit.";
+                    return;
+                }
+
+                using var memoryStream = new MemoryStream();
+                await file.OpenReadStream(5242880).CopyToAsync(memoryStream);
+                var bytes = memoryStream.ToArray();
+                profilePicture = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+                successMessage = "Picture uploaded successfully!";
+                errorMessage = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading file: {ex.Message}";
+        }
+    }
+
+    private void SaveProfile()
+    {
+        try
+        {
+            if (AuthService.CurrentUser != null)
+            {
+                AuthService.CurrentUser.PhoneNumber = phoneNumber;
+                AuthService.CurrentUser.Bio = bio;
+                AuthService.CurrentUser.ProfilePicture = profilePicture;
+                AuthService.CurrentUser.LastModified = DateTime.Now;
+
+                successMessage = "Profile updated successfully!";
+                errorMessage = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving profile: {ex.Message}";
+            successMessage = string.Empty;
+        }
+    }
+
+    private void ResetProfile()
+    {
+        var user = AuthService.CurrentUser;
+        if (user != null)
+        {
+            phoneNumber = user.PhoneNumber ?? string.Empty;
+            bio = user.Bio ?? string.Empty;
+            profilePicture = user.ProfilePicture ?? string.Empty;
+        }
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    private void HandleSignOut()
+    {
+        AuthService.SignOut();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}
