@@ -5,7 +5,7 @@ from datetime import date, timedelta, datetime
 from typing import List
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 
-from ..models import ChatRequest, ChatResponse, ScheduledEvent, AiAnalysisResult, EventFromGoogle
+from ..models import ChatRequest, ChatResponse, ScheduledEvent, AiAnalysisResult, EventFromGoogle, CalendarEvent
 from ..memory import get_ctx, add_turn, attach_analysis
 from ..file_reader import extract_text_from_file
 from ..ai_processor import (
@@ -13,9 +13,10 @@ from ..ai_processor import (
     make_study_assets,
     answer_query,
     general_chat,
+    detect_calendar_event,   
 )
 
-from ..calendar_api import get_events_for_range, get_token
+from ..calendar_api import get_events_for_range, get_token, create_new_event  
 
 router = APIRouter()
 
@@ -140,7 +141,6 @@ def _extract_month_day(text: str) -> date | None:
     except ValueError:
         return None
 
-    # normalize month key
     if month_name in _MONTH_LOOKUP:
         month = _MONTH_LOOKUP[month_name]
     else:
@@ -186,6 +186,10 @@ def _find_assessment_date(message: str, events: List[ScheduledEvent]) -> str | N
 
 
 def _format_study_assets_text(assets) -> str:
+    """
+    Pretty text for the STUDY PLAN feature (not the flashcard-only chat mode).
+    Now shows all flashcards and no 'first 3' wording.
+    """
     total = sum(t.duration_min for t in (assets.plan or []))
     lines = [f"I built a {total}-minute study plan with {len(assets.flashcards)} flashcards.", "", "Plan:"]
     for t in assets.plan[:4]:
@@ -195,8 +199,8 @@ def _format_study_assets_text(assets) -> str:
     if len(assets.plan) > 4:
         lines.append(f"... and {len(assets.plan) - 4} more blocks.")
     if assets.flashcards:
-        lines += ["", "Flashcards (first 3):"]
-        for fc in assets.flashcards[:3]:
+        lines += ["", "Flashcards:"]
+        for fc in assets.flashcards:
             lines.append(f"Q: {fc.front}  -  A: {fc.back}")
     return "\n".join(lines)
 
@@ -206,6 +210,39 @@ async def send(req: ChatRequest, request: Request):
     ctx = get_ctx(req.session_id)
     add_turn(req.session_id, "user", req.message)
     msg_l = req.message.lower()
+
+    wants_flashcards_only = ("flashcard" in msg_l) or ("flash card" in msg_l)
+    wants_study_plan = (
+        any(k in msg_l for k in ["study plan", "study schedule", "study guide"])
+        or bool(req.keywords)
+    ) and not wants_flashcards_only
+
+    cal_args = await detect_calendar_event(req.message)
+    if cal_args:
+        try:
+            start_dt = datetime.fromisoformat(cal_args["start"])
+            end_dt = datetime.fromisoformat(cal_args["end"])
+        except Exception:
+            cal_args = None
+        else:
+            cal_event = CalendarEvent(
+                title=cal_args["title"],
+                start=start_dt,
+                end=end_dt,
+                description=cal_args.get("description"),
+            )
+            token = get_token(request)
+            created = await create_new_event(event=cal_event, request=request, token=token)
+
+            when_label = start_dt.strftime("%B %d, %Y from %I:%M %p")
+            message = f"Got it — I added **{cal_event.title}** on {when_label} to your Google Calendar."
+
+            add_turn(req.session_id, "assistant", message)
+            return ChatResponse(
+                type="answer",
+                message=message,
+                data={"calendar_event": created},
+            )
 
     exam_line = _find_assessment_date(msg_l, ctx.events or [])
     if exam_line:
@@ -244,7 +281,6 @@ async def send(req: ChatRequest, request: Request):
         add_turn(req.session_id, "assistant", message)
         return ChatResponse(type="answer", message=message, data=None)
 
-    # --- Google Calendar: relative ranges ---
 
     if "next week" in msg_l or "coming week" in msg_l:
         events = await _get_calendar_events_range(request, days=7)
@@ -284,10 +320,8 @@ async def send(req: ChatRequest, request: Request):
         return ChatResponse(type="answer", message=message, data=None)
 
     if any(k in msg_l for k in ["what's due", "what is due", "due soon", "due soon?", "due", "deadline", "upcoming"]):
-        # 1) syllabus-based events (from uploaded syllabi)
         syl_upcoming = _filter_due(ctx.events, days=14)
 
-        # 2) Google Calendar events in next 14 days
         try:
             today = date.today()
             end = today + timedelta(days=14)
@@ -334,8 +368,7 @@ async def send(req: ChatRequest, request: Request):
             },
         )
 
-    # study plan / flashcards
-    if any(k in msg_l for k in ["study plan", "study", "flashcard", "review", "keywords"]) or (req.keywords):
+    if wants_study_plan:
         if not ctx.summary:
             guidance = "Upload a syllabus here or via the Import page, then ask again for a study plan."
             add_turn(req.session_id, "assistant", guidance)
@@ -367,7 +400,7 @@ async def upload_to_session(session_id: str = Form(...), file: UploadFile = File
         raise HTTPException(status_code=422, detail="Could not extract structured data from this file.")
 
     attach_analysis(session_id, analysis, raw_text=text)
-    add_turn(session_id, "assistant", "Syllabus attached. You can now ask 'what's due' or request a study plan.")
+    add_turn(session_id, "assistant", "Syllabus attached. You can now ask 'what's due', request a study plan, or ask for flashcards.")
     return {"attached_to_session": True, "summary": analysis.summary, "events_count": len(analysis.events)}
 
 

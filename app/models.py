@@ -2,31 +2,28 @@ from pydantic import BaseModel, Field, AnyUrl
 from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime, date
 
-# ----------------------------
 # Calendar / Events (original)
-# ----------------------------
 
 class CalendarEvent(BaseModel):
     """
     Model for creating or updating a Google Calendar event.
     """
     title: str
-    start: datetime  # FastAPI will parse ISO 8601 strings
+    start: datetime  
     end: datetime
     description: Optional[str] = None
 
-    # Convert to the format Google's API expects.
     def to_google_format(self):
         return {
             "summary": self.title,
             "description": self.description,
             "start": {
                 "dateTime": self.start.isoformat(),
-                "timeZone": "UTC",  # Or derive this from the datetime
+                "timeZone": "UTC",  
             },
             "end": {
                 "dateTime": self.end.isoformat(),
-                "timeZone": "UTC",  # Or derive this from the datetime
+                "timeZone": "UTC",  
             },
         }
 
@@ -36,8 +33,8 @@ class EventFromGoogle(BaseModel):
     """
     id: str
     title: str
-    start: str  # ISO string
-    end: str    # ISO string
+    start: str  
+    end: str    
 
 class ScheduledEvent(BaseModel):
     """Represents a single calendar event extracted from the syllabus."""
@@ -45,6 +42,13 @@ class ScheduledEvent(BaseModel):
     start_date: str = Field(..., description="The start date of the event in 'YYYY-MM-DD' format.")
     end_date: Optional[str] = Field(None, description="The end date of the event in 'YYYY-MM-DD' format, if applicable.")
     description: Optional[str] = Field(None, description="A brief description of the event.")
+
+class CreateCalendarEvent(BaseModel):
+    title: str
+    start: datetime
+    end: datetime
+    description: Optional[str] = None
+    location: Optional[str] = None
 
 class AiAnalysisResult(BaseModel):
     """Structured data extracted from the syllabus by the AI."""
@@ -71,11 +75,9 @@ class CalendarSubscription(BaseModel):
     url: AnyUrl = Field(..., description="The full URL of the .ics calendar to subscribe to.")
 
 
-# ---------------------------------
-# Chat / Study-plan models (new)
-# ---------------------------------
+# Chat / Study-plan models 
 
-class ChatTurn(BaseModel):
+class ChatTurn(BaseModel):  
     role: Literal["user", "assistant"]
     text: str
     at: datetime
@@ -83,7 +85,7 @@ class ChatTurn(BaseModel):
 class StudyTask(BaseModel):
     title: str
     steps: List[str]
-    duration_min: int  # minutes per block
+    duration_min: int  
 
 class Flashcard(BaseModel):
     front: str

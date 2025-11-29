@@ -59,10 +59,25 @@
                   @onkeydown="OnKeyDown">
         </textarea>
 
-        <button class="send" @onclick="SendAsync" aria-label="Send">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M8 5v14l11-7-11-7z"></path>
-          </svg>
+        <button class="send"
+                @onclick="SendAsync"
+                aria-label="Send"
+                disabled="@IsLoading">
+          @if (!IsLoading)
+          {
+            <!-- ▶️ Send icon -->
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M8 5v14l11-7-11-7z"></path>
+            </svg>
+          }
+          else
+          {
+            <!-- ⏸ Pause icon while loading -->
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <rect x="6" y="5" width="4" height="14" rx="1.5"></rect>
+              <rect x="14" y="5" width="4" height="14" rx="1.5"></rect>
+            </svg>
+          }
         </button>
       </div>
     </footer>
@@ -73,7 +88,7 @@
   bool isOpen = true;
   string input = "";
   string sessionId = Guid.NewGuid().ToString("N");
-
+  bool IsLoading = false; 
   record ChatMessage(string Role, string Text, DateTime At);
   List<ChatMessage> msgs = new()
   {
@@ -123,12 +138,16 @@
 
   async Task SendAsync()
   {
+    if (IsLoading)
+      return;
+
     var val = (input ?? "").Trim();
     if (string.IsNullOrEmpty(val))
       return;
 
     msgs.Add(new("user", val, DateTime.Now));
     input = "";
+    IsLoading = true; 
     StateHasChanged();
     await ScrollToBottom();
 
@@ -154,13 +173,19 @@
         $"Sorry, I couldn’t reach the server. {ex.Message}",
         DateTime.Now));
     }
-
-    StateHasChanged();
-    await ScrollToBottom();
+    finally
+    {
+      IsLoading = false;
+      StateHasChanged();
+      await ScrollToBottom();
+    }
   }
 
   async Task OnKeyDown(KeyboardEventArgs e)
   {
+    if (IsLoading)
+      return;
+
     if (e.Key == "Enter" && !e.ShiftKey)
     {
       await SendAsync();

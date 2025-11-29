@@ -56,7 +56,7 @@
   min-height:0; 
   overflow:auto;
   padding:14px 14px 96px;
-  background:#ffffff !important;          /* 🔥 FIXED — NO TRANSPARENCY */
+  background:#ffffff !important;        
   scroll-behavior:smooth;
 }
 
@@ -105,9 +105,13 @@
 .send:hover{ transform:translateY(-50%) translateY(-1px); background:#f7f8ff }
 .send svg{ fill:var(--indigo) }
 
+.send:disabled{
+  opacity:0.6;
+  cursor:default;
+}
+
 .hint{ font-size:11px; color:#94a3b8; margin:6px 4px 4px; text-align:center }
 
-/* User bubbles */
 .se-chat .row.user .bubble,
 .se-thread .row.user .bubble,
 .row.user .bubble{

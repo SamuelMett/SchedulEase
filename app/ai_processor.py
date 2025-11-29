@@ -1,5 +1,4 @@
-﻿# -*- coding: utf-8 -*-
-
+﻿
 import json
 import re
 from typing import List, Optional, Tuple, Dict, Any
@@ -12,11 +11,50 @@ from .models import (
     StudyTask,
     Flashcard,
     ChatContext,
+    CreateCalendarEvent,
 )
 
 client = OpenAI()
 
-# ---------- quick facts from raw syllabus text ----------
+# -----------------------------
+# Tools (function calling)
+# -----------------------------
+calendar_tool = {
+    "type": "function",
+    "function": {
+        "name": "create_calendar_event",
+        "description": "Create a calendar event for the current user (e.g., tests, assignments, reminders).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Short title of the event, e.g., 'Chem Test'."
+                },
+                "start": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Event start time in ISO 8601 format, e.g. '2025-12-01T14:00:00'."
+                },
+                "end": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Event end time in ISO 8601 format, e.g. '2025-12-01T15:15:00'."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional extra details about the event."
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Optional location, e.g. 'Fayard 223'."
+                },
+            },
+            "required": ["title", "start", "end"],
+        },
+    },
+}
+
 def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
     """
     Very small regex helpers to pull common fields directly from the raw syllabus text.
@@ -63,12 +101,10 @@ def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
             return m2.group(1).strip()
 
     return None
-# --------------------------------------------------------
 
 
-# -------------------------------
+
 # simple event matching helpers
-# -------------------------------
 def _normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s.lower()).strip()
 
@@ -106,18 +142,15 @@ def _find_event_by_query(message: str, events) -> Optional[Dict[str, str]]:
         title_n = _normalize(e.title)
         score = 0
 
-        # label hits
         for lab in labels:
             if lab in title_n:
                 score += 2
 
-        # number hits (e.g., "2" in "Quiz 2")
         if nums:
             tnums = set(_number_tokens(title_n))
             if nums & tnums:
                 score += 2
 
-        # generic cues
         if "when" in q or "due" in q or "date" in q:
             score += 1
 
@@ -131,7 +164,6 @@ def _find_event_by_query(message: str, events) -> Optional[Dict[str, str]]:
     if best and best_score >= 2 and best.start_date:
         return {"title": best.title, "date": best.start_date}
 
-    # special fallback just for "first day"
     if any(k in q for k in ["first day", "classes begin", "start of classes"]):
         for e in (events or []):
             t = _normalize(e.title)
@@ -141,9 +173,87 @@ def _find_event_by_query(message: str, events) -> Optional[Dict[str, str]]:
     return None
 
 
-# -------------------------------
+# Flashcard 
+def _is_flashcard_request(message: str) -> bool:
+    """
+    Heuristic: detect when the user is asking for flashcards in chat.
+    Handles both explicit requests ("make flashcards") and
+    follow-up requests ("can you make more?") after a set of cards.
+    """
+    m = message.lower().strip()
+
+    if "flashcard" in m or "flash card" in m:
+        return True
+
+    # Follow-up 
+    followups = [
+        "can you make more",
+        "can u make more",
+        "make more",
+        "more please",
+        "another set",
+        "new set",
+        "another 10",
+        "more of these",
+        "more of them",
+    ]
+    return any(p in m for p in followups)
+
+
+def _flashcards_from_context(message: str, ctx: ChatContext) -> str:
+    """
+    Use the stored course context (raw syllabus text and/or summary)
+    to generate Q/A flashcards as plain text that can be shown directly
+    in the chat UI.
+    """
+    base_text = (ctx.raw_text or "") or (ctx.summary or "")
+    if not base_text:
+        return (
+            "I don't have any course material stored yet, so I can't build flashcards. "
+            "Try uploading your syllabus or notes first, then ask me again."
+        )
+
+    max_chars = 12000
+    trimmed_text = base_text[:max_chars]
+
+    prompt = f"""
+You are a helpful academic tutor.
+
+The student has the following course material:
+
+\"\"\"{trimmed_text}\"\"\"
+
+The student asked: "{message}"
+
+From ONLY the material above, create 8–12 clear Q/A flashcards.
+They want NEW flashcards that are useful for studying.
+
+Format them exactly like this, with blank lines between cards:
+
+Flashcard 1
+Q: ...
+A: ...
+
+Flashcard 2
+Q: ...
+A: ...
+
+Keep each question and answer concise and focused on one idea.
+"""
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You create helpful, concise study flashcards."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.3,
+    )
+    answer = resp.choices[0].message.content.strip()
+    return answer
+
+
 # Existing: syllabus analysis
-# -------------------------------
 async def extract_analysis_from_text(text: str, context_date: date) -> AiAnalysisResult | None:
     """
     Analyze syllabus text and return structured summary + dated events using a function/tool call.
@@ -205,9 +315,7 @@ async def extract_analysis_from_text(text: str, context_date: date) -> AiAnalysi
         return None
 
 
-# -------------------------------
 # Study assets (plan + flashcards)
-# -------------------------------
 async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAssets:
     """
     Builds a compact study plan and flashcards using OpenAI.
@@ -264,28 +372,75 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
     )
 
 
-# -------------------------------
+# Calendar command detection
+async def detect_calendar_event(message: str) -> Optional[Dict[str, Any]]:
+    """
+    Use the create_calendar_event tool to see if the user is asking
+    to add something to the calendar.
+
+    If the model decides this is a calendar command, it will call the tool
+    and we return the parsed arguments as a dict:
+      { "title": ..., "start": "...", "end": "...", "description": ..., "location": ... }
+
+    If it is NOT a calendar command, we return None.
+    """
+    system = (
+        "You are an academic assistant that understands when the user "
+        "wants to add an event to their calendar. "
+        "If the message is a request to add or schedule something "
+        "(like 'add Chem test on Dec 1st 2pm-3:15'), "
+        "you MUST call the create_calendar_event tool with appropriate arguments. "
+        "If the message is not about adding an event, "
+        "do NOT call any tools."
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": message},
+        ],
+        tools=[calendar_tool],
+        tool_choice="auto",
+        temperature=0.0,
+    )
+
+    msg = resp.choices[0].message
+
+    if msg.tool_calls:
+        for tool_call in msg.tool_calls:
+            if tool_call.function.name == "create_calendar_event":
+                try:
+                    args = json.loads(tool_call.function.arguments)
+                except Exception:
+                    return None
+                return args
+    return None
+
+
 # Grounded Q&A
-# -------------------------------
 async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Dict[str, Any]]]:
     """
-    Answer using (1) raw_text quick facts, then (2) deterministic event lookup,
-    then (3) list logic for deadlines (all/upcoming/past), else (4) a grounded
-    LLM fallback over summary + events.
+    Answer using (1) flashcard generation (if requested),
+    then (2) raw_text quick facts,
+    then (3) deterministic event lookup,
+    then (4) list logic for deadlines (all/upcoming/past),
+    else (5) a grounded LLM fallback over summary + events.
     """
-    # 1) quick facts from raw syllabus text
+    if _is_flashcard_request(message):
+        flashcard_text = _flashcards_from_context(message, ctx)
+        return flashcard_text, {"mode": "flashcards"}
+
     if getattr(ctx, "raw_text", None):
         hit = _quick_fact_from_text(message, ctx.raw_text or "")
         if hit:
             return hit, {"source": "raw_text"}
 
-    # 2) try deterministic event match (Assignment/Quiz/Exam N, Final Project, First day)
     ev = _find_event_by_query(message, ctx.events or [])
     if ev:
         reply = f"{ev['title']} is on {ev['date']}."
         return reply, {"match": ev}
 
-    # 3) explicit deadline listing logic (all / upcoming / past)
     q = message.lower()
     events = ctx.events or []
 
@@ -295,7 +450,6 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
         except Exception:
             return None
 
-    # sort all events by date (None at the end)
     events_sorted = sorted(
         events,
         key=lambda e: (_to_date(e.start_date) is None, _to_date(e.start_date) or date.max)
@@ -330,7 +484,6 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
             filtered = [e for e in events_sorted if _is_past(e)]
             header = "Here are your past deadlines:"
         else:
-            # default for "deadlines/due dates" when not specifying upcoming/past → show ALL
             filtered = events_sorted
             header = "Here are all deadlines:"
 
@@ -347,7 +500,6 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
             "mode": "upcoming" if wants_upcoming else ("past" if wants_past else "all")
         })
 
-    # 4) grounded LLM fallback using summary + events (kept compact)
     lines: List[str] = []
     for e in events_sorted[:60]:
         lines.append(f"- {e.start_date}: {e.title}")
@@ -377,9 +529,7 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
     return answer, None
 
 
-# -------------------------------
 # General GPT fallback
-# -------------------------------
 async def general_chat(message: str) -> str:
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
