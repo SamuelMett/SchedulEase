@@ -14,6 +14,7 @@ from ..ai_processor import (
     answer_query,
     general_chat,
     detect_calendar_event,   
+    summarize_document,      
 )
 
 from ..calendar_api import get_events_for_range, get_token, create_new_event  
@@ -141,6 +142,7 @@ def _extract_month_day(text: str) -> date | None:
     except ValueError:
         return None
 
+    # normalize month key
     if month_name in _MONTH_LOOKUP:
         month = _MONTH_LOOKUP[month_name]
     else:
@@ -153,6 +155,18 @@ def _extract_month_day(text: str) -> date | None:
         return date(year, month, day)
     except ValueError:
         return None
+
+
+def _extract_month_only(text: str) -> int | None:
+    """
+    Look for a bare month name like 'january', 'feb', etc. and return its month number.
+    Used for questions like 'what is due in january?'.
+    """
+    for key, month in _MONTH_LOOKUP.items():
+        pattern = rf"\b{re.escape(key)}\b"
+        if re.search(pattern, text, re.I):
+            return month
+    return None
 
 
 
@@ -212,10 +226,24 @@ async def send(req: ChatRequest, request: Request):
     msg_l = req.message.lower()
 
     wants_flashcards_only = ("flashcard" in msg_l) or ("flash card" in msg_l)
+
+    wants_summary = any(
+        k in msg_l
+        for k in [
+            "summarize",
+            "summary",
+            "summarise",
+            "summarise this",
+            "summarize this",
+            "summarize the study guide",
+            "summarize this pdf",
+        ]
+    )
+
     wants_study_plan = (
         any(k in msg_l for k in ["study plan", "study schedule", "study guide"])
         or bool(req.keywords)
-    ) and not wants_flashcards_only
+    ) and not wants_flashcards_only and not wants_summary
 
     cal_args = await detect_calendar_event(req.message)
     if cal_args:
@@ -319,6 +347,68 @@ async def send(req: ChatRequest, request: Request):
         add_turn(req.session_id, "assistant", message)
         return ChatResponse(type="answer", message=message, data=None)
 
+    month_only = _extract_month_only(msg_l)
+    if month_only is not None and "due" in msg_l:
+        today = date.today()
+        year = today.year
+        if month_only < today.month:
+            year += 1
+
+        start_m = date(year, month_only, 1)
+        if month_only == 12:
+            end_m = date(year, 12, 31)
+        else:
+            end_m = date(year, month_only + 1, 1) - timedelta(days=1)
+
+        events = await _get_calendar_events_between(request, start_m, end_m)
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
+        due_events = [
+            e for e in events
+            if re.search(DUE_PATTERN, (e.title or ""), re.I)
+        ]
+
+        month_label = start_m.strftime("%B %Y")
+        if not due_events:
+            message = f"I don't see any due events on your Google Calendar for {month_label}."
+        else:
+            lines = [f"Here’s what’s due in {month_label} from your Google Calendar:"]
+            for e in due_events:
+                lines.append(f"• {_pretty_google_date(e.start)} — {e.title}")
+            message = "\n".join(lines)
+
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if "next semester" in msg_l or "next term" in msg_l:
+        today = date.today()
+
+        if today.month >= 8:
+            start = date(today.year + 1, 1, 1)
+        elif today.month <= 5:
+            start = date(today.year, 8, 1)
+        else:  # June–July
+            start = date(today.year, 8, 1)
+
+        end = start + timedelta(days=180)  
+
+        events = await _get_calendar_events_between(request, start, end)
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
+        due_events = [
+            e for e in events
+            if re.search(DUE_PATTERN, (e.title or ""), re.I)
+        ]
+
+        if not due_events:
+            message = "I don't see any due events on your Google Calendar for next semester."
+        else:
+            lines = ["Here are your due dates for next semester from your Google Calendar:"]
+            for e in due_events:
+                lines.append(f"• {_pretty_google_date(e.start)} — {e.title}")
+            message = "\n".join(lines)
+
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
     if any(k in msg_l for k in ["what's due", "what is due", "due soon", "due soon?", "due", "deadline", "upcoming"]):
         syl_upcoming = _filter_due(ctx.events, days=14)
 
@@ -368,6 +458,16 @@ async def send(req: ChatRequest, request: Request):
             },
         )
 
+    if wants_summary:
+        if not getattr(ctx, "raw_text", None):
+            guidance = "Upload a PDF or syllabus first, then I can summarize it for you."
+            add_turn(req.session_id, "assistant", guidance)
+            return ChatResponse(type="summary", message=guidance, data=None)
+
+        summary = await summarize_document(ctx.raw_text or "")
+        add_turn(req.session_id, "assistant", summary)
+        return ChatResponse(type="summary", message=summary, data=None)
+
     if wants_study_plan:
         if not ctx.summary:
             guidance = "Upload a syllabus here or via the Import page, then ask again for a study plan."
@@ -400,7 +500,12 @@ async def upload_to_session(session_id: str = Form(...), file: UploadFile = File
         raise HTTPException(status_code=422, detail="Could not extract structured data from this file.")
 
     attach_analysis(session_id, analysis, raw_text=text)
-    add_turn(session_id, "assistant", "Syllabus attached. You can now ask 'what's due', request a study plan, or ask for flashcards.")
+    add_turn(
+        session_id,
+        "assistant",
+        "File attached. You can now ask things like 'what's due', "
+        "'summarize this for me', request a study plan, or ask for flashcards."
+    )
     return {"attached_to_session": True, "summary": analysis.summary, "events_count": len(analysis.events)}
 
 

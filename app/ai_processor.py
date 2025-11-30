@@ -1,5 +1,4 @@
-﻿
-import json
+﻿import json
 import re
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import date
@@ -16,9 +15,7 @@ from .models import (
 
 client = OpenAI()
 
-# -----------------------------
 # Tools (function calling)
-# -----------------------------
 calendar_tool = {
     "type": "function",
     "function": {
@@ -54,6 +51,7 @@ calendar_tool = {
         },
     },
 }
+
 
 def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
     """
@@ -92,10 +90,9 @@ def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
 
     # Class location / room
     if re.search(r"\b(where|location|room|building|class located)\b", msg):
-        m = re.search(r"(?:Location|Room)\s*[:\-]\s*([^\n]+)", raw, re.I)
+        m = re.search(r"(?:Location|Room)\s*[:\-]\*([^\n]+)", raw, re.I)
         if m:
             return m.group(1).strip()
-        # sometimes embedded in schedule lines: "... (Room 214, Science Building)"
         m2 = re.search(r"\((Room[^)]+)\)", raw, re.I)
         if m2:
             return m2.group(1).strip()
@@ -103,13 +100,13 @@ def _quick_fact_from_text(message: str, raw: str) -> Optional[str]:
     return None
 
 
-
-# simple event matching helpers
 def _normalize(s: str) -> str:
     return re.sub(r"\s+", " ", s.lower()).strip()
 
+
 def _number_tokens(s: str) -> List[str]:
     return re.findall(r"\d+", s)
+
 
 def _find_event_by_query(message: str, events) -> Optional[Dict[str, str]]:
     """
@@ -185,7 +182,6 @@ def _is_flashcard_request(message: str) -> bool:
     if "flashcard" in m or "flash card" in m:
         return True
 
-    # Follow-up 
     followups = [
         "can you make more",
         "can u make more",
@@ -222,6 +218,7 @@ You are a helpful academic tutor.
 The student has the following course material:
 
 \"\"\"{trimmed_text}\"\"\"
+
 
 The student asked: "{message}"
 
@@ -315,7 +312,7 @@ async def extract_analysis_from_text(text: str, context_date: date) -> AiAnalysi
         return None
 
 
-# Study assets (plan + flashcards)
+# Study assets 
 async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAssets:
     """
     Builds a compact study plan and flashcards using OpenAI.
@@ -370,6 +367,54 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
         plan=plan,
         flashcards=flashcards,
     )
+
+
+async def summarize_document(text: str) -> str:
+    """
+    Summarize an uploaded document or study guide.
+
+    This is used when the user says things like:
+      - "summarize the study guide for me"
+      - "give me a summary of this pdf"
+
+    It should NOT create a study plan or flashcards – only a clear summary.
+    """
+    if not text:
+        return "I don't have any document content to summarize yet."
+
+    max_chars = 16000
+    trimmed = text[:max_chars]
+
+    system = (
+        "You are a careful academic tutor. "
+        "Your job is to summarize the student's study guide or notes.\n\n"
+        "Rules:\n"
+        "- Do NOT create a study plan.\n"
+        "- Do NOT create flashcards.\n"
+        "- Stay grounded in the provided text only.\n"
+        "- Start with a short overview (2–3 sentences).\n"
+        "- Then use headings and bullet points to list the main topics.\n"
+        "- Include important formulas, definitions, and key terms when relevant.\n"
+        "- Keep the whole summary focused and readable for a student who is revising."
+    )
+
+    user = (
+        "Here is the document text you should summarize:\n\n"
+        "---- BEGIN DOCUMENT ----\n"
+        f"{trimmed}\n"
+        "---- END DOCUMENT ----"
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        temperature=0.3,
+    )
+    summary = resp.choices[0].message.content.strip()
+    return summary
 
 
 # Calendar command detection
@@ -529,7 +574,6 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
     return answer, None
 
 
-# General GPT fallback
 async def general_chat(message: str) -> str:
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
