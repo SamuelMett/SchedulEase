@@ -199,6 +199,25 @@ def _find_assessment_date(message: str, events: List[ScheduledEvent]) -> str | N
     return None
 
 
+def wants_tutor_mode(message: str) -> bool:
+    """
+    Returns True if the user is asking for a step-by-step / tutor-style explanation.
+    """
+    msg = (message or "").lower()
+    triggers = [
+        "step by step",
+        "step-by-step",
+        "walk me through",
+        "explain slowly",
+        "explain in steps",
+        "one step at a time",
+        "tutor me",
+        "teach me step by step",
+        "show me step by step",
+    ]
+    return any(t in msg for t in triggers)
+
+
 def _format_study_assets_text(assets) -> str:
     """
     Pretty text for the STUDY PLAN feature (not the flashcard-only chat mode).
@@ -224,6 +243,8 @@ async def send(req: ChatRequest, request: Request):
     ctx = get_ctx(req.session_id)
     add_turn(req.session_id, "user", req.message)
     msg_l = req.message.lower()
+
+    tutor_mode = wants_tutor_mode(req.message)
 
     wants_flashcards_only = ("flashcard" in msg_l) or ("flash card" in msg_l)
 
@@ -361,7 +382,7 @@ async def send(req: ChatRequest, request: Request):
             end_m = date(year, month_only + 1, 1) - timedelta(days=1)
 
         events = await _get_calendar_events_between(request, start_m, end_m)
-        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"""
         due_events = [
             e for e in events
             if re.search(DUE_PATTERN, (e.title or ""), re.I)
@@ -480,11 +501,25 @@ async def send(req: ChatRequest, request: Request):
         return ChatResponse(type="study_plan", message=pretty, data=assets.model_dump())
 
     if ctx.summary or ctx.events:
-        reply, extra = await answer_query(req.message, ctx)
+        user_prompt = req.message
+        if tutor_mode:
+            user_prompt = (
+                "You are an academic tutor. Explain your reasoning in clear, small, numbered steps. "
+                "Go slowly, do not skip intermediate steps, and make sure each step is easy to follow.\n\n"
+                f"Student question: {req.message}"
+            )
+        reply, extra = await answer_query(user_prompt, ctx)
         add_turn(req.session_id, "assistant", reply)
         return ChatResponse(type="answer", message=reply, data=extra)
 
-    general = await general_chat(req.message)
+    general_prompt = req.message
+    if tutor_mode:
+        general_prompt = (
+            "You are an academic tutor. Explain your answer in clear, small, numbered steps. "
+            "Go slowly and avoid skipping intermediate reasoning.\n\n"
+            f"Student question: {req.message}"
+        )
+    general = await general_chat(general_prompt)
     add_turn(req.session_id, "assistant", general)
     return ChatResponse(type="answer", message=general, data=None)
 

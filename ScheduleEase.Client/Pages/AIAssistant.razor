@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
+@using ScheduleEase.Client.Components.AI   @* NEW: for <MarkdownView> *@
 
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -55,7 +56,8 @@
             }
             else
             {
-              <div class="ai-text">@m.Text</div>
+              @* *@
+              <MarkdownView Content="@m.Text" CssClass="ai-text" />
             }
           </div>
         </article>
@@ -127,7 +129,7 @@
 
   private string _sessionId = string.Empty;
 
-  private const long MaxUploadSize = 20 * 1024 * 1024; // 20 MB
+  private const long MaxUploadSize = 20 * 1024 * 1024;
 
   private readonly List<IBrowserFile> _pendingFiles = new();
 
