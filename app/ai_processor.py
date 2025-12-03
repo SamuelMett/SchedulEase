@@ -45,7 +45,6 @@ Please analyze the following syllabus text based on this context.
                 "function": {
                     "name": "extract_document_info",
                     "description": "Extract summary and events from the document.",
-                    # This line is perfect, do not change it
                     "parameters": AiAnalysisResult.model_json_schema()
                 }
             }],
@@ -59,11 +58,6 @@ Please analyze the following syllabus text based on this context.
             result_data = json.loads(tool_call.function.arguments)
             # This validation step is excellent
             return AiAnalysisResult(**result_data)
-        else:
-            print("--- AI did not use the tool. Response content: ---")
-            print(response_message.content)
-            print("-------------------------------------------------")
-            return None
 
     except Exception as e:
         print(f"Error calling OpenAI or processing its response: {e}")

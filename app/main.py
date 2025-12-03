@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import uvicorn
 
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
@@ -27,8 +27,6 @@ from datetime import datetime, timezone
 
 # --- Initialize FastAPI App ---
 app = FastAPI(title="SchedulEase API")
-
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,7 +53,7 @@ oauth.register(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-client_kwargs={
+    client_kwargs={
         'scope': 'openid email profile https://www.googleapis.com/auth/calendar'
     },
     access_type='offline',
@@ -68,20 +66,17 @@ app.include_router(calendar_api.router)
 @app.get('/', response_class=HTMLResponse)
 async def homepage(request: Request):
     """
-    Displays the homepage. If the user is logged in, it shows their name and a logout link.
-    Otherwise, it shows a login link.
+    Displays the homepage
     """
     user = request.session.get('user')
     if user:
         name = user.get('name')
         return f'''
-            <h1>Hello, {name}!</h1>
+            <h1>Welcome, {name}!</h1>
             <p>You are logged in.</p>
-            <a href="/profile">View Profile</a><br>
-            <a href="/calendar/events">View Your Google Calendar Events</a><br>
-            <a href="/logout">Logout</a>
+            <p>Please return to the webapp.</p>
         '''
-    return '<h1>Welcome!</h1><a href="/login">Login with Google</a>'
+    return HTMLResponse
 
 @app.get('/login')
 async def login(request: Request):
@@ -98,22 +93,28 @@ async def auth(request: Request):
     This is the callback route that Google redirects to after authentication.
     It processes the authorization token and stores user info in the session.
     """
-    try:
-        token = await oauth.google.authorize_access_token(request)
+    user = request.session.get('user')
+
+    if user:
+        print("already logged in.")
+        return RedirectResponse(url="/")
+    else:
+        try:
+            token = await oauth.google.authorize_access_token(request)
+            
+        except Exception as e:
+            # If there's an error, this will print it to your console
+            print(f"Error during authorize_access_token: {e}")
+            return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
         
-    except Exception as e:
-        # If there's an error, this will print it to your console
-        print(f"Error during authorize_access_token: {e}")
-        return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
-    
-    user_info = token.get('userinfo')
+        user_info = token.get('userinfo')
 
-    if user_info:
-        request.session['user'] = dict(user_info)
-    
-    request.session['token'] = token
+        if user_info:
+            request.session['user'] = dict(user_info)
+        
+        request.session['token'] = token
 
-    return RedirectResponse(url='/')
+        return RedirectResponse(url='/')
 
 @app.get('/logout')
 async def logout(request: Request):
@@ -123,7 +124,7 @@ async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url='/')
 
-@app.get('/profile', response_class=HTMLResponse)
+@app.get('/profile', response_class=RedirectResponse)
 async def profile(request: Request):
     """
     A protected route that displays user profile information from the session.
@@ -131,15 +132,6 @@ async def profile(request: Request):
     user = request.session.get('user')
     if not user:
         return RedirectResponse(url='/login')
-
-    return f"""
-        <h1>Profile</h1>
-        <p><strong>Name:</strong> {user.get('name')}</p>
-        <p><strong>Email:</strong> {user.get('email')}</p>
-        <img src="{user.get('picture')}" alt="Profile Picture">
-        <br><br>
-        <a href="/">Home</a>
-    """
 
 @app.get('/calendar/events')
 async def calendar_events(request: Request):
@@ -193,6 +185,7 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
     Accepts a syllabus file (PDF), extracts its text, analyzes it with an AI
     to find a summary and key dates, and returns the structured data.
     """
+
     # 1. Extract text from the uploaded PDF file
     print(f"Processing file: {file.filename}")
     syllabus_text = await extract_text_from_file(file)
