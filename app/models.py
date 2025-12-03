@@ -1,8 +1,7 @@
-from pydantic import BaseModel, Field, AnyUrl
+﻿from pydantic import BaseModel, Field, AnyUrl
 from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime, date
 
-# Calendar / Events (original)
 
 class CalendarEvent(BaseModel):
     """
@@ -75,7 +74,6 @@ class CalendarSubscription(BaseModel):
     url: AnyUrl = Field(..., description="The full URL of the .ics calendar to subscribe to.")
 
 
-# Chat / Study-plan models 
 
 class ChatTurn(BaseModel):  
     role: Literal["user", "assistant"]
@@ -105,7 +103,9 @@ class ChatContext(BaseModel):
     summary: Optional[str] = None                
     events: List[ScheduledEvent] = []            
     turns: List[ChatTurn] = []                    
-    raw_text: Optional[str] = None                
+    raw_text: Optional[str] = None
+
+    last_flashcards: List[Flashcard] = []
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -113,7 +113,6 @@ class ChatRequest(BaseModel):
     keywords: Optional[List[str]] = None          
 
 class ChatResponse(BaseModel):
-
-    type: Literal["answer", "due_list", "study_plan", "flashcards"]
+    type: Literal["answer", "due_list", "study_plan", "flashcards", "summary"]
     message: str                                
-    data: Optional[Dict[str, Any]] = None        
+    data: Optional[Dict[str, Any]] = None

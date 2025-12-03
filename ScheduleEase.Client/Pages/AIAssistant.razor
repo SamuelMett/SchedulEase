@@ -43,6 +43,8 @@
       @foreach (var m in _messages)
       {
         bool isUser = m.Role == "user";
+        var pdfUrl = GetPdfUrl(m);
+
         <article class="ai-msg @(isUser ? "is-user" : "is-assistant")">
           <div class="ai-avatar">@(isUser ? "You" : "SE")</div>
           <div class="ai-bubble">
@@ -56,8 +58,19 @@
             }
             else
             {
-              @* *@
               <MarkdownView Content="@m.Text" CssClass="ai-text" />
+
+              @* NEW: show a download link when we have a flashcards PDF *@
+              @if (!string.IsNullOrEmpty(pdfUrl))
+              {
+                <div class="ai-pdf-wrap">
+                  <a href="@pdfUrl"
+                     target="_blank"
+                     class="ai-pdf-link">
+                     Download flashcards PDF
+                  </a>
+                </div>
+              }
             }
           </div>
         </article>
@@ -123,7 +136,14 @@
 </main>
 
 @code {
-  private sealed record ChatMessage(string Role, string Text, DateTime At, bool Typing = false);
+  private sealed record ChatMessage(
+      string Role,
+      string Text,
+      DateTime At,
+      bool Typing = false,
+      string? Kind = null,
+      JsonElement? Data = null);
+
   private readonly List<ChatMessage> _messages = new();
   private string _input = string.Empty;
 
@@ -258,7 +278,17 @@
       var reply = payload?.Message ?? "…";
 
       var idx = _messages.IndexOf(typing);
-      if (idx >= 0) _messages[idx] = new ChatMessage("assistant", reply, DateTime.Now);
+      if (idx >= 0)
+      {
+        _messages[idx] = new ChatMessage(
+          Role: "assistant",
+          Text: reply,
+          At: DateTime.Now,
+          Typing: false,
+          Kind: payload?.Type,
+          Data: payload?.Data
+        );
+      }
     }
     catch (Exception ex)
     {
@@ -289,5 +319,23 @@
   {
     _pendingFiles.Remove(file);
     StateHasChanged();
+  }
+
+  // NEW: helper to pull pdf_url out of Data
+  private string? GetPdfUrl(ChatMessage m)
+  {
+    if (m.Kind != "flashcards" || m.Data is null)
+      return null;
+
+    var el = m.Data.Value;
+    if (el.ValueKind != JsonValueKind.Object)
+      return null;
+
+    if (el.TryGetProperty("pdf_url", out var pdfProp) && pdfProp.ValueKind == JsonValueKind.String)
+    {
+      return pdfProp.GetString();
+    }
+
+    return null;
   }
 }

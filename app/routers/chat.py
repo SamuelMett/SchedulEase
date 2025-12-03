@@ -1,9 +1,11 @@
 ﻿from __future__ import annotations
 
 import re
+import os
 from datetime import date, timedelta, datetime
 from typing import List
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import FileResponse
 
 from ..models import ChatRequest, ChatResponse, ScheduledEvent, AiAnalysisResult, EventFromGoogle, CalendarEvent
 from ..memory import get_ctx, add_turn, attach_analysis
@@ -13,13 +15,60 @@ from ..ai_processor import (
     make_study_assets,
     answer_query,
     general_chat,
-    detect_calendar_event,   
-    summarize_document,      
+    detect_calendar_event,
+    summarize_document,
 )
 
-from ..calendar_api import get_events_for_range, get_token, create_new_event  
+from ..calendar_api import get_events_for_range, get_token, create_new_event
 
 router = APIRouter()
+
+# Flashcards PDF support
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FLASHCARDS_PDF_DIR = os.path.join(BASE_DIR, "generated_flashcards")
+
+os.makedirs(FLASHCARDS_PDF_DIR, exist_ok=True)
+
+
+def _generate_flashcards_pdf(session_id: str, flashcards) -> str:
+    """
+    Build a simple PDF with the given flashcards.
+    Returns the filename (not full path).
+    Requires `reportlab` to be installed.
+    """
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    ts = int(datetime.utcnow().timestamp())
+    filename = f"flashcards_{session_id}_{ts}.pdf"
+    filepath = os.path.join(FLASHCARDS_PDF_DIR, filename)
+
+    c = canvas.Canvas(filepath, pagesize=letter)
+    width, height = letter
+    y = height - 72
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(72, y, "Flashcards")
+    y -= 32
+    c.setFont("Helvetica", 11)
+
+    for i, fc in enumerate(flashcards, start=1):
+        lines = [
+            f"{i}. Question: {fc.front}",
+            f"   Answer:   {fc.back}",
+            "",
+        ]
+        for line in lines:
+            if y < 72:
+                c.showPage()
+                c.setFont("Helvetica", 11)
+                y = height - 72
+            c.drawString(72, y, line)
+            y -= 16
+
+    c.save()
+    return filename
 
 
 def _parse_event_date(d: str) -> date | None:
@@ -48,7 +97,6 @@ def _render_due_text(events: List[ScheduledEvent]) -> str:
     for ev in events:
         lines.append(f"• {ev.start_date or 'TBD'} — {ev.title}")
     return "\n".join(lines)
-
 
 
 async def _get_calendar_events_range(request: Request, days: int) -> List[EventFromGoogle]:
@@ -102,7 +150,6 @@ def _pretty_google_date(s: str) -> str:
     return d.strftime("%B %d, %Y")
 
 
-
 _MONTH_LOOKUP = {
     "jan": 1, "january": 1,
     "feb": 2, "february": 2,
@@ -142,7 +189,6 @@ def _extract_month_day(text: str) -> date | None:
     except ValueError:
         return None
 
-    # normalize month key
     if month_name in _MONTH_LOOKUP:
         month = _MONTH_LOOKUP[month_name]
     else:
@@ -160,14 +206,12 @@ def _extract_month_day(text: str) -> date | None:
 def _extract_month_only(text: str) -> int | None:
     """
     Look for a bare month name like 'january', 'feb', etc. and return its month number.
-    Used for questions like 'what is due in january?'.
     """
     for key, month in _MONTH_LOOKUP.items():
         pattern = rf"\b{re.escape(key)}\b"
         if re.search(pattern, text, re.I):
             return month
     return None
-
 
 
 _ORD = {
@@ -200,9 +244,6 @@ def _find_assessment_date(message: str, events: List[ScheduledEvent]) -> str | N
 
 
 def wants_tutor_mode(message: str) -> bool:
-    """
-    Returns True if the user is asking for a step-by-step / tutor-style explanation.
-    """
     msg = (message or "").lower()
     triggers = [
         "step by step",
@@ -219,10 +260,6 @@ def wants_tutor_mode(message: str) -> bool:
 
 
 def _format_study_assets_text(assets) -> str:
-    """
-    Pretty text for the STUDY PLAN feature (not the flashcard-only chat mode).
-    Now shows all flashcards and no 'first 3' wording.
-    """
     total = sum(t.duration_min for t in (assets.plan or []))
     lines = [f"I built a {total}-minute study plan with {len(assets.flashcards)} flashcards.", "", "Plan:"]
     for t in assets.plan[:4]:
@@ -266,6 +303,19 @@ async def send(req: ChatRequest, request: Request):
         or bool(req.keywords)
     ) and not wants_flashcards_only and not wants_summary
 
+    wants_flashcards_pdf = "pdf" in msg_l and getattr(ctx, "last_flashcards", None)
+    if wants_flashcards_pdf:
+        filename = _generate_flashcards_pdf(req.session_id, ctx.last_flashcards)
+        pdf_url = request.url_for("download_flashcards_pdf", filename=filename)
+
+        message = "I created a PDF with your flashcards. You can download it using the button or link in the chat."
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(
+            type="flashcards",
+            message=message,
+            data={"pdf_url": str(pdf_url)},
+        )
+
     cal_args = await detect_calendar_event(req.message)
     if cal_args:
         try:
@@ -300,10 +350,7 @@ async def send(req: ChatRequest, request: Request):
 
     if "final exam" in msg_l and ("when" in msg_l or "what day" in msg_l or "date" in msg_l):
         events = await _get_calendar_events_range(request, days=180)
-        matches = [
-            e for e in events
-            if re.search(r"final exam", (e.title or ""), re.I)
-        ]
+        matches = [e for e in events if re.search(r"final exam", (e.title or ""), re.I)]
         if matches:
             first = matches[0]
             date_str = _pretty_google_date(first.start)
@@ -320,16 +367,12 @@ async def send(req: ChatRequest, request: Request):
             date_label = target_date.strftime("%B %d, %Y")
             message = f"I don't see any events on your Google Calendar for {date_label}."
         else:
-            exams = [
-                e for e in events
-                if re.search(r"\b(exam|test|quiz)\b", (e.title or ""), re.I)
-            ]
+            exams = [e for e in events if re.search(r"\b(exam|test|quiz)\b", (e.title or ""), re.I)]
             chosen = exams[0] if exams else events[0]
             date_label = target_date.strftime("%B %d, %Y")
             message = f"On {date_label} you have: {chosen.title}."
         add_turn(req.session_id, "assistant", message)
         return ChatResponse(type="answer", message=message, data=None)
-
 
     if "next week" in msg_l or "coming week" in msg_l:
         events = await _get_calendar_events_range(request, days=7)
@@ -383,10 +426,7 @@ async def send(req: ChatRequest, request: Request):
 
         events = await _get_calendar_events_between(request, start_m, end_m)
         DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"""
-        due_events = [
-            e for e in events
-            if re.search(DUE_PATTERN, (e.title or ""), re.I)
-        ]
+        due_events = [e for e in events if re.search(DUE_PATTERN, (e.title or ""), re.I)]
 
         month_label = start_m.strftime("%B %Y")
         if not due_events:
@@ -407,17 +447,14 @@ async def send(req: ChatRequest, request: Request):
             start = date(today.year + 1, 1, 1)
         elif today.month <= 5:
             start = date(today.year, 8, 1)
-        else:  # June–July
+        else:
             start = date(today.year, 8, 1)
 
-        end = start + timedelta(days=180)  
+        end = start + timedelta(days=180)
 
         events = await _get_calendar_events_between(request, start, end)
         DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
-        due_events = [
-            e for e in events
-            if re.search(DUE_PATTERN, (e.title or ""), re.I)
-        ]
+        due_events = [e for e in events if re.search(DUE_PATTERN, (e.title or ""), re.I)]
 
         if not due_events:
             message = "I don't see any due events on your Google Calendar for next semester."
@@ -441,10 +478,7 @@ async def send(req: ChatRequest, request: Request):
             gcal_all = []
 
         DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
-        gcal_upcoming = [
-            e for e in gcal_all
-            if re.search(DUE_PATTERN, (e.title or ""), re.I)
-        ]
+        gcal_upcoming = [e for e in gcal_all if re.search(DUE_PATTERN, (e.title or ""), re.I)]
 
         if not syl_upcoming and not gcal_upcoming:
             message = "No upcoming deadlines in the next two weeks."
@@ -496,9 +530,21 @@ async def send(req: ChatRequest, request: Request):
             return ChatResponse(type="study_plan", message=guidance, data=None)
 
         assets = await make_study_assets(ctx.summary, req.keywords or [])
+
+        try:
+            ctx.last_flashcards = assets.flashcards or []
+        except Exception:
+            pass
+
         pretty = _format_study_assets_text(assets)
-        add_turn(req.session_id, "assistant", pretty)
-        return ChatResponse(type="study_plan", message=pretty, data=assets.model_dump())
+        pretty_with_prompt = (
+            pretty
+            + "\n\nWould you like a PDF version of these flashcards that you can download?"
+            + " If so, just say something like: 'give me the flashcards pdf' or 'send me a pdf I can download'."
+        )
+
+        add_turn(req.session_id, "assistant", pretty_with_prompt)
+        return ChatResponse(type="study_plan", message=pretty_with_prompt, data=assets.model_dump())
 
     if ctx.summary or ctx.events:
         user_prompt = req.message
@@ -552,3 +598,11 @@ async def get_context(session_id: str):
         "events_count": len(ctx.events or []),
         "last_turns": [t.model_dump() for t in ctx.turns[-10:]],
     }
+
+
+@router.get("/flashcards/pdf/{filename}")
+async def download_flashcards_pdf(filename: str):
+    filepath = os.path.join(FLASHCARDS_PDF_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="PDF not found.")
+    return FileResponse(filepath, media_type="application/pdf", filename="flashcards.pdf")
