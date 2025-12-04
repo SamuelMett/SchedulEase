@@ -1,0 +1,137 @@
+@using ScheduleEase.Client.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1rem">
+    <RadzenText TextStyle="TextStyle.Body1">
+        Fill in the event details to add a new event to your Google Calendar.
+    </RadzenText>
+
+    <RadzenFormField Text="Event Title" Variant="Variant.Outlined">
+        <RadzenTextBox @bind-Value="@newEvent.Title" Style="width: 100%;" Placeholder="e.g., CS301 Final Exam" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Description (Optional)" Variant="Variant.Outlined">
+        <RadzenTextArea @bind-Value="@newEvent.Description" Rows="3" Style="width: 100%;" Placeholder="Additional details about the event..." />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Start Date & Time" Variant="Variant.Outlined">
+        <RadzenDatePicker 
+            @bind-Value="@newEvent.Start" 
+            ShowTime="true" 
+            DateFormat="MM/dd/yyyy HH:mm" 
+            Style="width: 100%;" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="End Date & Time" Variant="Variant.Outlined">
+        <RadzenDatePicker 
+            @bind-Value="@newEvent.End" 
+            ShowTime="true" 
+            DateFormat="MM/dd/yyyy HH:mm" 
+            Style="width: 100%;" />
+    </RadzenFormField>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Variant="Variant.Flat" Shade="Shade.Lighter">
+            @errorMessage
+        </RadzenAlert>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-4">
+        <RadzenButton 
+            Text="Cancel" 
+            ButtonStyle="ButtonStyle.Light" 
+            Click="CloseDialog" />
+        <RadzenButton 
+            Text="Add to Calendar" 
+            Icon="add_task" 
+            ButtonStyle="ButtonStyle.Primary" 
+            IsBusy="isSubmitting"
+            Click="CreateEvent" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    private CalendarEventCreate newEvent = new CalendarEventCreate
+    {
+        Start = DateTime.Now,
+        End = DateTime.Now.AddHours(1)
+    };
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    private async Task CreateEvent()
+    {
+        errorMessage = string.Empty;
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(newEvent.Title))
+        {
+            errorMessage = "Event title is required.";
+            return;
+        }
+
+        if (newEvent.End <= newEvent.Start)
+        {
+            errorMessage = "End date must be after start date.";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            // Convert to UTC
+            var eventToSubmit = new CalendarEventCreate
+            {
+                Title = newEvent.Title,
+                Description = newEvent.Description,
+                Start = newEvent.Start.ToUniversalTime(),
+                End = newEvent.End.ToUniversalTime()
+            };
+
+            // POST to the same endpoint that Import uses
+            var response = await Http.PostAsJsonAsync("/api/calendar/events", eventToSubmit);
+
+            if (response.IsSuccessStatusCode)
+            {
+                NotificationService.Notify(
+                    NotificationSeverity.Success, 
+                    "Event Created", 
+                    $"'{newEvent.Title}' has been added to your calendar."
+                );
+                DialogService.Close(true);
+            }
+            else
+            {
+                errorMessage = $"Failed to create event: {response.StatusCode}";
+                NotificationService.Notify(
+                    NotificationSeverity.Error, 
+                    "Error", 
+                    "Failed to add event to calendar."
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            NotificationService.Notify(
+                NotificationSeverity.Error, 
+                "Error", 
+                "An unexpected error occurred."
+            );
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void CloseDialog()
+    {
+        DialogService.Close(false);
+    }
+}
