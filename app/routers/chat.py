@@ -1,0 +1,608 @@
+﻿from __future__ import annotations
+
+import re
+import os
+from datetime import date, timedelta, datetime
+from typing import List
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import FileResponse
+
+from ..models import ChatRequest, ChatResponse, ScheduledEvent, AiAnalysisResult, EventFromGoogle, CalendarEvent
+from ..memory import get_ctx, add_turn, attach_analysis
+from ..file_reader import extract_text_from_file
+from ..ai_processor import (
+    extract_analysis_from_text,
+    make_study_assets,
+    answer_query,
+    general_chat,
+    detect_calendar_event,
+    summarize_document,
+)
+
+from ..calendar_api import get_events_for_range, get_token, create_new_event
+
+router = APIRouter()
+
+# Flashcards PDF support
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FLASHCARDS_PDF_DIR = os.path.join(BASE_DIR, "generated_flashcards")
+
+os.makedirs(FLASHCARDS_PDF_DIR, exist_ok=True)
+
+
+def _generate_flashcards_pdf(session_id: str, flashcards) -> str:
+    """
+    Build a simple PDF with the given flashcards.
+    Returns the filename (not full path).
+    Requires `reportlab` to be installed.
+    """
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    ts = int(datetime.utcnow().timestamp())
+    filename = f"flashcards_{session_id}_{ts}.pdf"
+    filepath = os.path.join(FLASHCARDS_PDF_DIR, filename)
+
+    c = canvas.Canvas(filepath, pagesize=letter)
+    width, height = letter
+    y = height - 72
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(72, y, "Flashcards")
+    y -= 32
+    c.setFont("Helvetica", 11)
+
+    for i, fc in enumerate(flashcards, start=1):
+        lines = [
+            f"{i}. Question: {fc.front}",
+            f"   Answer:   {fc.back}",
+            "",
+        ]
+        for line in lines:
+            if y < 72:
+                c.showPage()
+                c.setFont("Helvetica", 11)
+                y = height - 72
+            c.drawString(72, y, line)
+            y -= 16
+
+    c.save()
+    return filename
+
+
+def _parse_event_date(d: str) -> date | None:
+    try:
+        return date.fromisoformat(d)
+    except Exception:
+        return None
+
+
+def _filter_due(events: List[ScheduledEvent], days: int = 14) -> List[ScheduledEvent]:
+    today = date.today()
+    end = today + timedelta(days=days)
+    due: List[ScheduledEvent] = []
+    for ev in events or []:
+        sd = _parse_event_date(ev.start_date)
+        if sd and today <= sd <= end:
+            due.append(ev)
+    due.sort(key=lambda e: e.start_date)
+    return due
+
+
+def _render_due_text(events: List[ScheduledEvent]) -> str:
+    if not events:
+        return "No upcoming deadlines in the next two weeks."
+    lines = ["Here are your upcoming deadlines:"]
+    for ev in events:
+        lines.append(f"• {ev.start_date or 'TBD'} — {ev.title}")
+    return "\n".join(lines)
+
+
+async def _get_calendar_events_range(request: Request, days: int) -> List[EventFromGoogle]:
+    """
+    Fetch events from Google Calendar for the next `days` days.
+    """
+    start_dt = datetime.utcnow()
+    end_dt = start_dt + timedelta(days=days)
+    token = get_token(request)
+    return await get_events_for_range(
+        request=request,
+        start=start_dt,
+        end=end_dt,
+        token=token,
+    )
+
+
+async def _get_calendar_events_between(request: Request, start: date, end: date) -> List[EventFromGoogle]:
+    """
+    Fetch events from Google Calendar between two calendar dates (inclusive).
+    """
+    start_dt = datetime.combine(start, datetime.min.time())
+    end_dt = datetime.combine(end, datetime.max.time())
+    token = get_token(request)
+    return await get_events_for_range(
+        request=request,
+        start=start_dt,
+        end=end_dt,
+        token=token,
+    )
+
+
+def _google_date_from_string(s: str) -> date | None:
+    """
+    Google returns either 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SSZ'.
+    This converts both forms into a date object.
+    """
+    if not s:
+        return None
+    try:
+        pure = s.split("T", 1)[0]
+        return date.fromisoformat(pure)
+    except Exception:
+        return None
+
+
+def _pretty_google_date(s: str) -> str:
+    d = _google_date_from_string(s)
+    if not d:
+        return s
+    return d.strftime("%B %d, %Y")
+
+
+_MONTH_LOOKUP = {
+    "jan": 1, "january": 1,
+    "feb": 2, "february": 2,
+    "mar": 3, "march": 3,
+    "apr": 4, "april": 4,
+    "may": 5,
+    "jun": 6, "june": 6,
+    "jul": 7, "july": 7,
+    "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10,
+    "nov": 11, "november": 11,
+    "dec": 12, "december": 12,
+}
+
+
+def _extract_month_day(text: str) -> date | None:
+    """
+    Find patterns like 'dec 5', 'december 5th', etc. and return a date
+    (using the current year).
+    """
+    m = re.search(
+        r"\b("
+        r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+        r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+        r")\s+(\d{1,2})(st|nd|rd|th)?\b",
+        text,
+        re.I,
+    )
+    if not m:
+        return None
+
+    month_name = m.group(1).lower()
+    day_str = m.group(2)
+    try:
+        day = int(day_str)
+    except ValueError:
+        return None
+
+    if month_name in _MONTH_LOOKUP:
+        month = _MONTH_LOOKUP[month_name]
+    else:
+        month = _MONTH_LOOKUP.get(month_name[:3], None)
+    if not month:
+        return None
+
+    year = date.today().year
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _extract_month_only(text: str) -> int | None:
+    """
+    Look for a bare month name like 'january', 'feb', etc. and return its month number.
+    """
+    for key, month in _MONTH_LOOKUP.items():
+        pattern = rf"\b{re.escape(key)}\b"
+        if re.search(pattern, text, re.I):
+            return month
+    return None
+
+
+_ORD = {
+    "1": 1, "one": 1, "first": 1,
+    "2": 2, "two": 2, "second": 2,
+    "3": 3, "three": 3, "third": 3,
+    "4": 4, "four": 4, "fourth": 4,
+    "5": 5, "five": 5, "fifth": 5,
+}
+
+
+def _find_number(s: str) -> int | None:
+    for token, n in _ORD.items():
+        if re.search(rf"\b{token}\b", s, re.I):
+            return n
+    return None
+
+
+def _find_assessment_date(message: str, events: List[ScheduledEvent]) -> str | None:
+    n = _find_number(message)
+    if n is None:
+        return None
+    filtered = [e for e in events or [] if re.search(r"\b(exam|test|quiz)\b", e.title, re.I)]
+    filtered.sort(key=lambda e: (e.start_date, e.title))
+    idx = n - 1
+    if 0 <= idx < len(filtered):
+        tgt = filtered[idx]
+        return f"{tgt.title} is on {tgt.start_date}."
+    return None
+
+
+def wants_tutor_mode(message: str) -> bool:
+    msg = (message or "").lower()
+    triggers = [
+        "step by step",
+        "step-by-step",
+        "walk me through",
+        "explain slowly",
+        "explain in steps",
+        "one step at a time",
+        "tutor me",
+        "teach me step by step",
+        "show me step by step",
+    ]
+    return any(t in msg for t in triggers)
+
+
+def _format_study_assets_text(assets) -> str:
+    total = sum(t.duration_min for t in (assets.plan or []))
+    lines = [f"I built a {total}-minute study plan with {len(assets.flashcards)} flashcards.", "", "Plan:"]
+    for t in assets.plan[:4]:
+        lines.append(f"• {t.title} — {t.duration_min} min")
+        for s in t.steps[:3]:
+            lines.append(f"   - {s}")
+    if len(assets.plan) > 4:
+        lines.append(f"... and {len(assets.plan) - 4} more blocks.")
+    if assets.flashcards:
+        lines += ["", "Flashcards:"]
+        for fc in assets.flashcards:
+            lines.append(f"Q: {fc.front}  -  A: {fc.back}")
+    return "\n".join(lines)
+
+
+@router.post("/send", response_model=ChatResponse)
+async def send(req: ChatRequest, request: Request):
+    ctx = get_ctx(req.session_id)
+    add_turn(req.session_id, "user", req.message)
+    msg_l = req.message.lower()
+
+    tutor_mode = wants_tutor_mode(req.message)
+
+    wants_flashcards_only = ("flashcard" in msg_l) or ("flash card" in msg_l)
+
+    wants_summary = any(
+        k in msg_l
+        for k in [
+            "summarize",
+            "summary",
+            "summarise",
+            "summarise this",
+            "summarize this",
+            "summarize the study guide",
+            "summarize this pdf",
+        ]
+    )
+
+    wants_study_plan = (
+        any(k in msg_l for k in ["study plan", "study schedule", "study guide"])
+        or bool(req.keywords)
+    ) and not wants_flashcards_only and not wants_summary
+
+    wants_flashcards_pdf = "pdf" in msg_l and getattr(ctx, "last_flashcards", None)
+    if wants_flashcards_pdf:
+        filename = _generate_flashcards_pdf(req.session_id, ctx.last_flashcards)
+        pdf_url = request.url_for("download_flashcards_pdf", filename=filename)
+
+        message = "I created a PDF with your flashcards. You can download it using the button or link in the chat."
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(
+            type="flashcards",
+            message=message,
+            data={"pdf_url": str(pdf_url)},
+        )
+
+    cal_args = await detect_calendar_event(req.message)
+    if cal_args:
+        try:
+            start_dt = datetime.fromisoformat(cal_args["start"])
+            end_dt = datetime.fromisoformat(cal_args["end"])
+        except Exception:
+            cal_args = None
+        else:
+            cal_event = CalendarEvent(
+                title=cal_args["title"],
+                start=start_dt,
+                end=end_dt,
+                description=cal_args.get("description"),
+            )
+            token = get_token(request)
+            created = await create_new_event(event=cal_event, request=request, token=token)
+
+            when_label = start_dt.strftime("%B %d, %Y from %I:%M %p")
+            message = f"Got it — I added **{cal_event.title}** on {when_label} to your Google Calendar."
+
+            add_turn(req.session_id, "assistant", message)
+            return ChatResponse(
+                type="answer",
+                message=message,
+                data={"calendar_event": created},
+            )
+
+    exam_line = _find_assessment_date(msg_l, ctx.events or [])
+    if exam_line:
+        add_turn(req.session_id, "assistant", exam_line)
+        return ChatResponse(type="answer", message=exam_line, data=None)
+
+    if "final exam" in msg_l and ("when" in msg_l or "what day" in msg_l or "date" in msg_l):
+        events = await _get_calendar_events_range(request, days=180)
+        matches = [e for e in events if re.search(r"final exam", (e.title or ""), re.I)]
+        if matches:
+            first = matches[0]
+            date_str = _pretty_google_date(first.start)
+            message = f"Your final exam on Google Calendar is on {date_str}: {first.title}."
+        else:
+            message = "I couldn't find a 'Final Exam' event on your Google Calendar."
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    target_date = _extract_month_day(msg_l)
+    if target_date:
+        events = await _get_calendar_events_between(request, target_date, target_date)
+        if not events:
+            date_label = target_date.strftime("%B %d, %Y")
+            message = f"I don't see any events on your Google Calendar for {date_label}."
+        else:
+            exams = [e for e in events if re.search(r"\b(exam|test|quiz)\b", (e.title or ""), re.I)]
+            chosen = exams[0] if exams else events[0]
+            date_label = target_date.strftime("%B %d, %Y")
+            message = f"On {date_label} you have: {chosen.title}."
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if "next week" in msg_l or "coming week" in msg_l:
+        events = await _get_calendar_events_range(request, days=7)
+        if not events:
+            message = "You have no events scheduled for next week on your Google Calendar."
+        else:
+            message = "Here’s what’s coming up next week from your Google Calendar:\n" + "\n".join(
+                f"• {_pretty_google_date(e.start)} — {e.title}" for e in events
+            )
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if "tomorrow" in msg_l:
+        tomorrow = date.today() + timedelta(days=1)
+        events = await _get_calendar_events_between(request, tomorrow, tomorrow)
+        if not events:
+            message = "You have nothing due tomorrow on your Google Calendar."
+        else:
+            message = "Here’s what’s due tomorrow from your Google Calendar:\n" + "\n".join(
+                f"• {_pretty_google_date(e.start)} — {e.title}" for e in events
+            )
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if "this month" in msg_l or "rest of this month" in msg_l:
+        today = date.today()
+        next_month = (today.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_of_month = next_month - timedelta(days=1)
+        events = await _get_calendar_events_between(request, today, end_of_month)
+        if not events:
+            message = "You have no events scheduled for the rest of this month on your Google Calendar."
+        else:
+            message = "Here’s what’s happening this month from your Google Calendar:\n" + "\n".join(
+                f"• {_pretty_google_date(e.start)} — {e.title}" for e in events
+            )
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    month_only = _extract_month_only(msg_l)
+    if month_only is not None and "due" in msg_l:
+        today = date.today()
+        year = today.year
+        if month_only < today.month:
+            year += 1
+
+        start_m = date(year, month_only, 1)
+        if month_only == 12:
+            end_m = date(year, 12, 31)
+        else:
+            end_m = date(year, month_only + 1, 1) - timedelta(days=1)
+
+        events = await _get_calendar_events_between(request, start_m, end_m)
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"""
+        due_events = [e for e in events if re.search(DUE_PATTERN, (e.title or ""), re.I)]
+
+        month_label = start_m.strftime("%B %Y")
+        if not due_events:
+            message = f"I don't see any due events on your Google Calendar for {month_label}."
+        else:
+            lines = [f"Here’s what’s due in {month_label} from your Google Calendar:"]
+            for e in due_events:
+                lines.append(f"• {_pretty_google_date(e.start)} — {e.title}")
+            message = "\n".join(lines)
+
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if "next semester" in msg_l or "next term" in msg_l:
+        today = date.today()
+
+        if today.month >= 8:
+            start = date(today.year + 1, 1, 1)
+        elif today.month <= 5:
+            start = date(today.year, 8, 1)
+        else:
+            start = date(today.year, 8, 1)
+
+        end = start + timedelta(days=180)
+
+        events = await _get_calendar_events_between(request, start, end)
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
+        due_events = [e for e in events if re.search(DUE_PATTERN, (e.title or ""), re.I)]
+
+        if not due_events:
+            message = "I don't see any due events on your Google Calendar for next semester."
+        else:
+            lines = ["Here are your due dates for next semester from your Google Calendar:"]
+            for e in due_events:
+                lines.append(f"• {_pretty_google_date(e.start)} — {e.title}")
+            message = "\n".join(lines)
+
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(type="answer", message=message, data=None)
+
+    if any(k in msg_l for k in ["what's due", "what is due", "due soon", "due soon?", "due", "deadline", "upcoming"]):
+        syl_upcoming = _filter_due(ctx.events, days=14)
+
+        try:
+            today = date.today()
+            end = today + timedelta(days=14)
+            gcal_all = await _get_calendar_events_between(request, today, end)
+        except Exception:
+            gcal_all = []
+
+        DUE_PATTERN = r"(exam|quiz|test|assignment|project|homework|paper|report|midterm|final|due)"
+        gcal_upcoming = [e for e in gcal_all if re.search(DUE_PATTERN, (e.title or ""), re.I)]
+
+        if not syl_upcoming and not gcal_upcoming:
+            message = "No upcoming deadlines in the next two weeks."
+            add_turn(req.session_id, "assistant", message)
+            return ChatResponse(
+                type="due_list",
+                message=message,
+                data={"due": []},
+            )
+
+        lines: List[str] = ["Here’s what’s due soon:\n"]
+
+        if syl_upcoming:
+            lines.append("📘 From your uploaded syllabi:")
+            for ev in syl_upcoming:
+                lines.append(f"• {ev.start_date or 'TBD'} — {ev.title}")
+            lines.append("")
+
+        if gcal_upcoming:
+            lines.append("📅 From your Google Calendar:")
+            for e in gcal_upcoming:
+                lines.append(f"• {_pretty_google_date(e.start)} — {e.title}")
+
+        message = "\n".join(lines)
+        add_turn(req.session_id, "assistant", message)
+        return ChatResponse(
+            type="due_list",
+            message=message,
+            data={
+                "due_syllabus": [e.model_dump() for e in syl_upcoming],
+                "due_gcal": [e.model_dump() for e in gcal_upcoming],
+            },
+        )
+
+    if wants_summary:
+        if not getattr(ctx, "raw_text", None):
+            guidance = "Upload a PDF or syllabus first, then I can summarize it for you."
+            add_turn(req.session_id, "assistant", guidance)
+            return ChatResponse(type="summary", message=guidance, data=None)
+
+        summary = await summarize_document(ctx.raw_text or "")
+        add_turn(req.session_id, "assistant", summary)
+        return ChatResponse(type="summary", message=summary, data=None)
+
+    if wants_study_plan:
+        if not ctx.summary:
+            guidance = "Upload a syllabus here or via the Import page, then ask again for a study plan."
+            add_turn(req.session_id, "assistant", guidance)
+            return ChatResponse(type="study_plan", message=guidance, data=None)
+
+        assets = await make_study_assets(ctx.summary, req.keywords or [])
+
+        try:
+            ctx.last_flashcards = assets.flashcards or []
+        except Exception:
+            pass
+
+        pretty = _format_study_assets_text(assets)
+        pretty_with_prompt = (
+            pretty
+            + "\n\nWould you like a PDF version of these flashcards that you can download?"
+            + " If so, just say something like: 'give me the flashcards pdf' or 'send me a pdf I can download'."
+        )
+
+        add_turn(req.session_id, "assistant", pretty_with_prompt)
+        return ChatResponse(type="study_plan", message=pretty_with_prompt, data=assets.model_dump())
+
+    if ctx.summary or ctx.events:
+        user_prompt = req.message
+        if tutor_mode:
+            user_prompt = (
+                "You are an academic tutor. Explain your reasoning in clear, small, numbered steps. "
+                "Go slowly, do not skip intermediate steps, and make sure each step is easy to follow.\n\n"
+                f"Student question: {req.message}"
+            )
+        reply, extra = await answer_query(user_prompt, ctx)
+        add_turn(req.session_id, "assistant", reply)
+        return ChatResponse(type="answer", message=reply, data=extra)
+
+    general_prompt = req.message
+    if tutor_mode:
+        general_prompt = (
+            "You are an academic tutor. Explain your answer in clear, small, numbered steps. "
+            "Go slowly and avoid skipping intermediate reasoning.\n\n"
+            f"Student question: {req.message}"
+        )
+    general = await general_chat(general_prompt)
+    add_turn(req.session_id, "assistant", general)
+    return ChatResponse(type="answer", message=general, data=None)
+
+
+@router.post("/upload")
+async def upload_to_session(session_id: str = Form(...), file: UploadFile = File(...)):
+    if file.content_type not in {"application/pdf", "application/octet-stream"}:
+        raise HTTPException(status_code=400, detail="Please upload a PDF.")
+
+    text = await extract_text_from_file(file)
+    analysis: AiAnalysisResult | None = await extract_analysis_from_text(text, context_date=date.today())
+    if analysis is None:
+        raise HTTPException(status_code=422, detail="Could not extract structured data from this file.")
+
+    attach_analysis(session_id, analysis, raw_text=text)
+    add_turn(
+        session_id,
+        "assistant",
+        "File attached. You can now ask things like 'what's due', "
+        "'summarize this for me', request a study plan, or ask for flashcards."
+    )
+    return {"attached_to_session": True, "summary": analysis.summary, "events_count": len(analysis.events)}
+
+
+@router.get("/context/{session_id}")
+async def get_context(session_id: str):
+    ctx = get_ctx(session_id)
+    return {
+        "summary_present": bool(ctx.summary),
+        "events_count": len(ctx.events or []),
+        "last_turns": [t.model_dump() for t in ctx.turns[-10:]],
+    }
+
+
+@router.get("/flashcards/pdf/{filename}")
+async def download_flashcards_pdf(filename: str):
+    filepath = os.path.join(FLASHCARDS_PDF_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="PDF not found.")
+    return FileResponse(filepath, media_type="application/pdf", filename="flashcards.pdf")

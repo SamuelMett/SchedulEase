@@ -1,0 +1,341 @@
+@page "/assistant"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using ScheduleEase.Client.Components.AI   @* NEW: for <MarkdownView> *@
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<header class="ai-topbar">
+  <div class="ai-topbar__left">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 3l1.29 2.61L17 6.27l-2 2 .47 2.73L13 10.27l-2.47.73L11 8.27l-2-2 2.71-.66L13 3zM5 13l1.29 2.61L9 16.27l-2 2 .47 2.73L5 20.27l-2.47.73L3 18.27l-2-2 2.71-.66L5 13zm12 0l1.29 2.61L21 16.27l-2 2 .47 2.73L17 20.27l-2.47.73L15 18.27l-2-2 2.71-.66L17 13z" fill="currentColor"/>
+    </svg>
+    <span>SchedulEase Assistant</span>
+  </div>
+  <div class="ai-topbar__right">
+    <span class="ai-dot"></span>
+    <span class="ai-muted">Online</span>
+  </div>
+</header>
+
+<main class="ai-wrap">
+  <section class="ai-thread">
+    @if (_messages.Count == 0)
+    {
+      <div class="ai-empty">
+        <div class="ai-empty__icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M13 3l1.29 2.61L17 6.27l-2 2 .47 2.73L13 10.27l-2.47.73L11 8.27l-2-2 2.71-.66L13 3zM5 13l1.29 2.61L9 16.27l-2 2 .47 2.73L5 20.27l-2.47.73L3 18.27l-2-2 2.71-.66L5 13zm12 0l1.29 2.61L21 16.27l-2 2 .47 2.73L17 20.27l-2.47.73L15 18.27l-2-2 2.71-.66L17 13z" fill="currentColor"/>
+          </svg>
+        </div>
+        <h2>How can I help you today?</h2>
+        <p class="ai-empty__sub">Type a message or click <strong>+</strong> to add a file.</p>
+      </div>
+    }
+    else
+    {
+      @foreach (var m in _messages)
+      {
+        bool isUser = m.Role == "user";
+        var pdfUrl = GetPdfUrl(m);
+
+        <article class="ai-msg @(isUser ? "is-user" : "is-assistant")">
+          <div class="ai-avatar">@(isUser ? "You" : "SE")</div>
+          <div class="ai-bubble">
+            <div class="ai-meta">
+              <span class="ai-who">@(isUser ? "You" : "Assistant")</span>
+              <span class="ai-when">@m.At.ToShortTimeString()</span>
+            </div>
+            @if (m.Typing)
+            {
+              <div class="ai-typing"><span></span><span></span><span></span></div>
+            }
+            else
+            {
+              <MarkdownView Content="@m.Text" CssClass="ai-text" />
+
+              @* NEW: show a download link when we have a flashcards PDF *@
+              @if (!string.IsNullOrEmpty(pdfUrl))
+              {
+                <div class="ai-pdf-wrap">
+                  <a href="@pdfUrl"
+                     target="_blank"
+                     class="ai-pdf-link">
+                     Download flashcards PDF
+                  </a>
+                </div>
+              }
+            }
+          </div>
+        </article>
+      }
+    }
+  </section>
+
+  <section class="ai-composer">
+
+    @if (_pendingFiles.Count > 0)
+    {
+      <div class="ai-files">
+        @foreach (var file in _pendingFiles)
+        {
+          <div class="ai-file-chip">
+            <div class="ai-file-icon">📄</div>
+            <div class="ai-file-main">
+              <div class="ai-file-name">@file.Name</div>
+            </div>
+            <button type="button"
+                    class="ai-file-remove"
+                    @onclick="@(() => RemovePendingFile(file))"
+                    title="Remove">
+              ✕
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="pill">
+      <label class="pill__plus" for="uploader" title="Add file">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </label>
+
+      <InputFile id="uploader"
+                 class="visually-hidden"
+                 OnChange="HandleFilesSelected"
+                 multiple
+                 accept=".pdf,.doc,.docx,.txt,image/*" />
+
+      <input class="pill__input"
+             type="text"
+             placeholder="Ask anything"
+             @bind="_input"
+             @bind:event="oninput"
+             @onkeydown="HandleKeyDown" />
+
+      <button class="pill__send"
+              @onclick="OnSend"
+              disabled="@(_pendingFiles.Count == 0 && string.IsNullOrWhiteSpace(_input))"
+              title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2 21L23 12 2 3l4.7 8L2 21zm6.2-5.6l1.9-1.9 6.4-1.5-6.4-1.5-1.9-1.9 1.9 3.4-1.9 3.4z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="ai-hint">Press <kbd>Enter</kbd> to send • Click <span class="hint-plus">+</span> to add file</div>
+  </section>
+</main>
+
+@code {
+  private sealed record ChatMessage(
+      string Role,
+      string Text,
+      DateTime At,
+      bool Typing = false,
+      string? Kind = null,
+      JsonElement? Data = null);
+
+  private readonly List<ChatMessage> _messages = new();
+  private string _input = string.Empty;
+
+  private string _sessionId = string.Empty;
+
+  private const long MaxUploadSize = 20 * 1024 * 1024;
+
+  private readonly List<IBrowserFile> _pendingFiles = new();
+
+  private sealed class ChatSendRequest
+  {
+      [JsonPropertyName("session_id")] public string SessionId { get; set; } = default!;
+      [JsonPropertyName("message")]    public string Message   { get; set; } = default!;
+  }
+
+  private sealed class ChatResponse
+  {
+      [JsonPropertyName("type")]    public string Type { get; set; } = "";
+      [JsonPropertyName("message")] public string Message { get; set; } = "";
+      [JsonPropertyName("data")]    public JsonElement? Data { get; set; }
+  }
+
+  private sealed class TurnDto
+  {
+      [JsonPropertyName("role")] public string Role { get; set; } = "";
+      [JsonPropertyName("text")] public string Text { get; set; } = "";
+      [JsonPropertyName("at")]   public DateTime At { get; set; }
+  }
+
+  private sealed class ContextResponse
+  {
+      [JsonPropertyName("summary_present")] public bool SummaryPresent { get; set; }
+      [JsonPropertyName("events_count")]    public int EventsCount { get; set; }
+      [JsonPropertyName("last_turns")]      public List<TurnDto> LastTurns { get; set; } = new();
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    var storedId = await JS.InvokeAsync<string>("localStorage.getItem", "se_ai_session");
+    if (!string.IsNullOrWhiteSpace(storedId))
+    {
+      _sessionId = storedId;
+    }
+    else
+    {
+      _sessionId = Guid.NewGuid().ToString("N");
+      await JS.InvokeVoidAsync("localStorage.setItem", "se_ai_session", _sessionId);
+    }
+
+    try
+    {
+      var ctx = await Http.GetFromJsonAsync<ContextResponse>($"/api/chat/context/{_sessionId}");
+      if (ctx is not null && ctx.LastTurns is not null && ctx.LastTurns.Count > 0)
+      {
+        foreach (var t in ctx.LastTurns)
+        {
+          var role = t.Role?.ToLower() == "user" ? "user" : "assistant";
+          _messages.Add(new ChatMessage(role, t.Text ?? string.Empty, t.At));
+        }
+      }
+    }
+    catch
+    {
+    }
+
+    if (_messages.Count == 0)
+    {
+      _messages.Add(new ChatMessage(
+        "assistant",
+        "Hi! Ask me about your schedule — or click + to add a syllabus file.",
+        DateTime.Now));
+    }
+  }
+
+  private async Task HandleKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter" && !e.ShiftKey &&
+        (!string.IsNullOrWhiteSpace(_input) || _pendingFiles.Count > 0))
+    {
+      await OnSend();
+    }
+  }
+
+  private async Task OnSend()
+  {
+    var text = _input?.Trim();
+
+    if (string.IsNullOrWhiteSpace(text) && _pendingFiles.Count == 0)
+      return;
+
+    string bubbleText = text ?? string.Empty;
+    if (_pendingFiles.Count > 0)
+    {
+      var attachmentLine = $"📎 {_pendingFiles.Count} attachment(s)";
+      if (string.IsNullOrWhiteSpace(bubbleText))
+        bubbleText = attachmentLine;
+      else
+        bubbleText = $"{bubbleText}\n\n{attachmentLine}";
+    }
+
+    _messages.Add(new ChatMessage("user", bubbleText, DateTime.Now));
+    _input = string.Empty;
+
+    var typing = new ChatMessage("assistant", "", DateTime.Now, Typing: true);
+    _messages.Add(typing);
+    StateHasChanged();
+
+    try
+    {
+      foreach (var file in _pendingFiles)
+      {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(_sessionId), "session_id");
+
+        using var stream = file.OpenReadStream(MaxUploadSize);
+        var fileContent = new StreamContent(stream);
+        fileContent.Headers.ContentType =
+          new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
+        content.Add(fileContent, "file", file.Name);
+
+        var uploadResp = await Http.PostAsync("/api/chat/upload", content);
+        uploadResp.EnsureSuccessStatusCode();
+      }
+
+      _pendingFiles.Clear();
+
+      var req = new ChatSendRequest { SessionId = _sessionId, Message = text ?? string.Empty };
+      var httpResp = await Http.PostAsJsonAsync("/api/chat/send", req);
+      httpResp.EnsureSuccessStatusCode();
+
+      var payload = await httpResp.Content.ReadFromJsonAsync<ChatResponse>();
+      var reply = payload?.Message ?? "…";
+
+      var idx = _messages.IndexOf(typing);
+      if (idx >= 0)
+      {
+        _messages[idx] = new ChatMessage(
+          Role: "assistant",
+          Text: reply,
+          At: DateTime.Now,
+          Typing: false,
+          Kind: payload?.Type,
+          Data: payload?.Data
+        );
+      }
+    }
+    catch (Exception ex)
+    {
+      var idx = _messages.IndexOf(typing);
+      if (idx >= 0) _messages[idx] = new ChatMessage("assistant",
+        $"Sorry, I couldn’t reach the server. {ex.Message}", DateTime.Now);
+    }
+
+    StateHasChanged();
+  }
+
+  private Task HandleFilesSelected(InputFileChangeEventArgs e)
+  {
+    var remaining = Math.Max(0, 5 - _pendingFiles.Count);
+    if (remaining == 0) return Task.CompletedTask;
+
+    var files = e.GetMultipleFiles(remaining);
+    foreach (var f in files)
+    {
+      _pendingFiles.Add(f);
+    }
+
+    StateHasChanged();
+    return Task.CompletedTask;
+  }
+
+  private void RemovePendingFile(IBrowserFile file)
+  {
+    _pendingFiles.Remove(file);
+    StateHasChanged();
+  }
+
+  // NEW: helper to pull pdf_url out of Data
+  private string? GetPdfUrl(ChatMessage m)
+  {
+    if (m.Kind != "flashcards" || m.Data is null)
+      return null;
+
+    var el = m.Data.Value;
+    if (el.ValueKind != JsonValueKind.Object)
+      return null;
+
+    if (el.TryGetProperty("pdf_url", out var pdfProp) && pdfProp.ValueKind == JsonValueKind.String)
+    {
+      return pdfProp.GetString();
+    }
+
+    return null;
+  }
+}

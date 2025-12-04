@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="_content/Radzen.Blazor/css/default-base.css">
     <link rel="stylesheet" href="_content/Radzen.Blazor/css/default.css">
     <link href="css/site.css" rel="stylesheet" />
+    <link rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css">
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
 </head>
 
 <body>
@@ -44,6 +46,12 @@
             }
         };
     </script>
+<script>
+  window.SchedulEase = {
+    scrollToBottom: (el) => { try { if (el) el.scrollTop = el.scrollHeight; } catch(e){} }
+  };
+</script>
+
 </body>
 
 </html>

@@ -1,41 +1,39 @@
-from pydantic import BaseModel, Field, AnyUrl
-from typing import List, Optional
+﻿from pydantic import BaseModel, Field, AnyUrl
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime, date
+
 
 class CalendarEvent(BaseModel):
     """
     Model for creating or updating a Google Calendar event.
     """
     title: str
-    start: datetime  # FastAPI will parse ISO 8601 strings
+    start: datetime  
     end: datetime
     description: Optional[str] = None
-    
-    # This helper function will convert our simple model
-    # into the format Google's API expects.
+
     def to_google_format(self):
         return {
-            'summary': self.title,
-            'description': self.description,
-            'start': {
-                'dateTime': self.start.isoformat(),
-                'timeZone': 'UTC', # Or derive this from the datetime
+            "summary": self.title,
+            "description": self.description,
+            "start": {
+                "dateTime": self.start.isoformat(),
+                "timeZone": "UTC",  
             },
-            'end': {
-                'dateTime': self.end.isoformat(),
-                'timeZone': 'UTC', # Or derive this from the datetime
+            "end": {
+                "dateTime": self.end.isoformat(),
+                "timeZone": "UTC",  
             },
         }
 
 class EventFromGoogle(BaseModel):
     """
-    Model to parse and return the simple event format
-    that frontend calendars love (e.g., FullCalendar).
+    Simple event format for frontend calendars (e.g., FullCalendar).
     """
     id: str
     title: str
-    start: str  # Send as ISO string
-    end: str    # Send as ISO string
+    start: str  
+    end: str    
 
 class ScheduledEvent(BaseModel):
     """Represents a single calendar event extracted from the syllabus."""
@@ -44,8 +42,15 @@ class ScheduledEvent(BaseModel):
     end_date: Optional[str] = Field(None, description="The end date of the event in 'YYYY-MM-DD' format, if applicable.")
     description: Optional[str] = Field(None, description="A brief description of the event.")
 
+class CreateCalendarEvent(BaseModel):
+    title: str
+    start: datetime
+    end: datetime
+    description: Optional[str] = None
+    location: Optional[str] = None
+
 class AiAnalysisResult(BaseModel):
-    """The structured data extracted from the syllabus by the AI."""
+    """Structured data extracted from the syllabus by the AI."""
     summary: str = Field(..., description="A concise summary of the course syllabus.")
     events: List[ScheduledEvent] = Field(..., description="A list of all scheduled events found in the syllabus.")
 
@@ -68,17 +73,46 @@ class CalendarSubscription(BaseModel):
     """Model for subscribing to an external .ics calendar url."""
     url: AnyUrl = Field(..., description="The full URL of the .ics calendar to subscribe to.")
 
-class CalendarEvent(BaseModel):
-    """Model for creating or updating a Google Calendar event."""
+
+
+class ChatTurn(BaseModel):  
+    role: Literal["user", "assistant"]
+    text: str
+    at: datetime
+
+class StudyTask(BaseModel):
     title: str
-    start: datetime
-    end: datetime
-    description: Optional[str] = None
-    
-    def to_google_format(self):
-        return {
-            'summary': self.title,
-            'description': self.description,
-            'start': {'dateTime': self.start.isoformat(), 'timeZone': 'UTC'},
-            'end': {'dateTime': self.end.isoformat(), 'timeZone': 'UTC'},
-        }
+    steps: List[str]
+    duration_min: int  
+
+class Flashcard(BaseModel):
+    front: str
+    back: str
+
+class StudyAssets(BaseModel):
+    """Structured output for study planning & quick review."""
+    keywords: List[str] = []
+    plan: List[StudyTask] = []
+    flashcards: List[Flashcard] = []
+
+class ChatContext(BaseModel):
+    """
+    What the assistant knows for a given session.
+    """
+    session_id: str
+    summary: Optional[str] = None                
+    events: List[ScheduledEvent] = []            
+    turns: List[ChatTurn] = []                    
+    raw_text: Optional[str] = None
+
+    last_flashcards: List[Flashcard] = []
+
+class ChatRequest(BaseModel):
+    session_id: str
+    message: str
+    keywords: Optional[List[str]] = None          
+
+class ChatResponse(BaseModel):
+    type: Literal["answer", "due_list", "study_plan", "flashcards", "summary"]
+    message: str                                
+    data: Optional[Dict[str, Any]] = None

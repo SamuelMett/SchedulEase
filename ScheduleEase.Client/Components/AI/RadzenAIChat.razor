@@ -1,0 +1,182 @@
+@using Microsoft.AspNetCore.Components.Web
+@using Radzen
+@using Radzen.Blazor
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<div class="rz-p-0" style="display:flex; flex-direction:column; height:100%;">
+  <div class="rz-p-2 rz-d-flex rz-justify-between rz-align-center" style="gap:.5rem;">
+    <div class="rz-d-flex rz-align-center" style="gap:.5rem;">
+      <RadzenIcon Icon="smart_toy" class="rz-text-primary" />
+      <strong>@(Title ?? "AI Assistant")</strong>
+    </div>
+
+    @if (ShowClearButton && Messages.Count > 0)
+    {
+      <RadzenButton Icon="delete" Text="Clear" Size="ButtonSize.Small"
+                    ButtonStyle="ButtonStyle.Light" Click="@OnClearChat"
+                    Disabled="@IsLoading" />
+    }
+  </div>
+
+  <div @ref="messagesContainer"
+       style="flex:1 1 auto; overflow:auto; padding:12px; background:#0f141b; border-radius:10px; border:1px solid #1f2a37;">
+    @if (Messages.Count == 0)
+    {
+      <div class="rz-text-center rz-mt-4" style="color:#98a6bd;">@EmptyMessage</div>
+    }
+    else
+    {
+      @foreach (var m in Messages)
+      {
+        var isUser = m.IsUser;
+        <div class="rz-d-flex rz-mb-2 @(isUser ? "rz-justify-end" : "rz-justify-start")" style="gap:.5rem;">
+          @if (!isUser)
+          {
+            <div class="rz-d-flex rz-align-center rz-justify-center"
+                 style="width:28px;height:28px;border-radius:9999px;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;">
+              @AssistantAvatarText
+            </div>
+          }
+
+          <div class="rz-card"
+               style="max-width:72%; background:@(isUser ? "#2563eb" : "#111827");
+                      color:@(isUser ? "#fff" : "#e5e7eb");
+                      border:none; border-radius:14px; padding:10px 12px;">
+            @m.Content
+          </div>
+
+          @if (isUser)
+          {
+            <div class="rz-d-flex rz-align-center rz-justify-center"
+                 style="width:28px;height:28px;border-radius:9999px;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;">
+              @UserAvatarText
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <div class="rz-d-flex rz-align-end rz-p-2" style="gap:.5rem;">
+    <RadzenTextArea @bind-Value="CurrentInput"
+                    @onkeydown="OnKeyDown"
+                    Placeholder="@Placeholder"
+                    Rows="2"
+                    Disabled="@(Disabled || IsLoading)"
+                    ReadOnly="@(ReadOnly || IsLoading)"
+                    Class="rz-flex-1"
+                    style="min-height:44px; max-height:140px; background:#0f141b;
+                           color:#e6edf6; border-color:#1f2a37;" />
+
+    <RadzenButton Icon="@(IsLoading ? "pause" : "send")"
+                  ButtonStyle="ButtonStyle.Primary"
+                  Disabled="@( !IsLoading && string.IsNullOrWhiteSpace(CurrentInput) )"
+                  Click="OnPrimaryButtonClick" />
+  </div>
+</div>
+
+@code {
+  [Parameter] public string? Title { get; set; }
+  [Parameter] public string Placeholder { get; set; } = "Type your message…";
+  [Parameter] public string EmptyMessage { get; set; } = "New chat started. What do you want to work on today?";
+  [Parameter] public string UserAvatarText { get; set; } = "U";
+  [Parameter] public string AssistantAvatarText { get; set; } = "SE";
+  [Parameter] public string? SessionId { get; set; }
+  [Parameter] public bool ShowClearButton { get; set; } = true;
+  [Parameter] public bool Disabled { get; set; }
+  [Parameter] public bool ReadOnly { get; set; }
+
+  private readonly List<ChatMessage> Messages = new();
+  private string CurrentInput = string.Empty;
+  private bool IsLoading = false;
+  private ElementReference messagesContainer;
+  private CancellationTokenSource? _cts;
+
+  private record ChatMessage(string Content, bool IsUser, DateTime At);
+  public record ChatTurn(string role, string content);
+  public record ChatRequest(List<ChatTurn> messages);
+  public record ChatReply(string reply);
+
+  private async Task OnClearChat()
+  {
+    if (IsLoading) return;
+    Messages.Clear();
+    await InvokeAsync(StateHasChanged);
+  }
+
+  private async Task OnPrimaryButtonClick()
+  {
+    if (IsLoading)
+    {
+      _cts?.Cancel();
+      IsLoading = false;
+      await InvokeAsync(StateHasChanged);
+      return;
+    }
+
+    await OnSendMessage();
+  }
+
+  private async Task OnSendMessage()
+  {
+    var text = (CurrentInput ?? string.Empty).Trim();
+    if (string.IsNullOrWhiteSpace(text) || IsLoading || Disabled || ReadOnly)
+      return;
+
+    Messages.Add(new ChatMessage(text, true, DateTime.Now));
+    CurrentInput = string.Empty;
+    await InvokeAsync(StateHasChanged);
+    await ScrollToBottom();
+
+    _cts?.Dispose();
+    _cts = new CancellationTokenSource();
+    var token = _cts.Token;
+
+    IsLoading = true;
+
+    try
+    {
+      var turns = Messages
+        .Select(m => new ChatTurn(m.IsUser ? "user" : "assistant", m.Content))
+        .ToList();
+
+      var resp = await Http.PostAsJsonAsync("/chat", new ChatRequest(turns), token);
+      resp.EnsureSuccessStatusCode();
+
+      var data = await resp.Content.ReadFromJsonAsync<ChatReply>(cancellationToken: token);
+
+      if (!token.IsCancellationRequested && data is not null)
+      {
+        Messages.Add(new ChatMessage(data.reply ?? "(no reply)", false, DateTime.Now));
+      }
+    }
+    catch (TaskCanceledException)
+    {
+    }
+    catch (Exception ex)
+    {
+      Messages.Add(new ChatMessage($"(error contacting server) {ex.Message}", false, DateTime.Now));
+    }
+    finally
+    {
+      IsLoading = false;
+      await InvokeAsync(StateHasChanged);
+      await ScrollToBottom();
+    }
+  }
+
+  private async Task OnKeyDown(KeyboardEventArgs e)
+  {
+    if (e.Key == "Enter" && !e.ShiftKey)
+    {
+      await OnSendMessage();
+    }
+  }
+
+  private async Task ScrollToBottom()
+  {
+    await Task.Delay(10);
+    try { await messagesContainer.FocusAsync(); } catch { }
+  }
+}

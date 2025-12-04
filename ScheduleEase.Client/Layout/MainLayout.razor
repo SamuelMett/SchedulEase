@@ -1,23 +1,43 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using SchedulEase.Services
 @inject NavigationManager NavigationManager
+@using Radzen
+@using Radzen.Blazor
+@using ScheduleEase.Client.Components.Chat
+
+@inject AuthService AuthService
+
+@if (!AuthService.IsAuthenticated && !NavigationManager.Uri.Contains("/login") && !NavigationManager.Uri.Contains("/signup"))
+{
+    NavigationManager.NavigateTo("/login");
+}
 
 <RadzenLayout>
-    <RadzenHeader class="main-header">
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-px-4">
+    @if (AuthService.IsAuthenticated)
+    {
+        <RadzenHeader Style="height: 80px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Style="padding: 0 2rem; height: 100%;">
 
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2rem">
-                <RadzenText Text="ScheduleEase" TextStyle="TextStyle.H5" class="brand-title" />
-                <RadzenLink Text="Home" Path="/" class="nav-link" />
-                <RadzenLink Text="Calendar" Path="/calendar" class="nav-link" />
-                <RadzenLink Text="Import" Path="/import" class="nav-link" />
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="3rem">
+                    <!-- User Greeting -->
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                        <RadzenIcon Icon="person" Style="color: #ffffff; font-size: 28px;" />
+                        <RadzenText Text="@($"Hello, {AuthService.CurrentUser?.FullName}")" TextStyle="TextStyle.H6" Style="font-weight: 600; color: #ffffff; font-size: 1.1rem;" />
+                    </RadzenStack>
+
+                    <RadzenLink Text="Home" Path="/home" Style="font-size: 1.1rem; font-weight: 500; color: #ffffff; text-decoration: none; transition: color 0.2s;" />
+                    <RadzenLink Text="Calendar" Path="/calendar" Style="font-size: 1.1rem; font-weight: 500; color: #ffffff; text-decoration: none; transition: color 0.2s;" />
+                    <RadzenLink Text="Import" Path="/import" Style="font-size: 1.1rem; font-weight: 500; color: #ffffff; text-decoration: none; transition: color 0.2s;" />
+                </RadzenStack>
+
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="2rem">
+                    <RadzenLink Text="Profile" Path="/profile" Style="font-size: 1.1rem; font-weight: 500; color: #ffffff; text-decoration: none; transition: color 0.2s;" />
+                    <!-- Sign Out Button -->
+                    <RadzenButton Text="Sign Out" Icon="logout" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Size="ButtonSize.Medium" Click="HandleSignOut" />
+                </RadzenStack>
             </RadzenStack>
-
-            <a href="https://127.0.0.1:8000/login" target="_blank" class="rz-button rz-button-primary rz-button-icon-left" style="text-decoration: none;">
-                <RadzenIcon Icon="login" class="rz-button-icon" />
-                <span class="rz-button-text">Connect Google Account</span>
-            </a>
-        </RadzenStack>
-    </RadzenHeader>
+        </RadzenHeader>
+    }
 
     <RadzenBody>
         <div class="main-content">
@@ -27,4 +47,14 @@
 
 </RadzenLayout>
 
+<RadzenDialog />
+
+
+<FloatChat />
+@code {
+    private void HandleSignOut()
+    {
+        AuthService.SignOut();
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
 }

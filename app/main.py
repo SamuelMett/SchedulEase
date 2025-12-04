@@ -1,41 +1,39 @@
 # app/main.py
+
 from app import calendar_api
 from dotenv import load_dotenv
-# load env file
 load_dotenv()
 
 from fastapi.middleware.cors import CORSMiddleware
-
 import os
 import uvicorn
-
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
-from typing import List
-
-from fastapi.responses import JSONResponse
+from typing import List, Literal
 from datetime import datetime, timezone, date
+from pydantic import BaseModel
+from openai import OpenAI
 
-from .models import AiAnalysisResult
+from .models import AiAnalysisResult, ScheduledEvent, EventFromSelector
 from .ai_processor import extract_analysis_from_text
 from .file_reader import extract_text_from_file
-from .models import ScheduledEvent, EventFromSelector
 from .google_scheduler import schedule_event_on_google_calendar, schedule_multiple_events
-from datetime import datetime, timezone
+from app.routers import chat as chat_router
 
-# --- Initialize FastAPI App ---
 app = FastAPI(title="SchedulEase API")
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:7070"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
+# Session middleware
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
@@ -44,10 +42,10 @@ app.add_middleware(
     https_only=False
 )
 
+# OAuth setup
 oauth = OAuth()
 app.state.oauth = oauth
 
-# Register the Google OAuth client
 oauth.register(
     name='google',
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
@@ -60,14 +58,14 @@ oauth.register(
     prompt='consent'
 )
 
-# --- API Routes ---
+# Routers
 app.include_router(calendar_api.router)
+app.include_router(chat_router.router, prefix="/api/chat", tags=["Chat API"])
+
+
 
 @app.get('/', response_class=HTMLResponse)
 async def homepage(request: Request):
-    """
-    Displays the homepage
-    """
     user = request.session.get('user')
     if user:
         name = user.get('name')
@@ -78,60 +76,50 @@ async def homepage(request: Request):
         '''
     return HTMLResponse
 
+
 @app.get('/login')
 async def login(request: Request):
-    """
-    Redirects the user to Google's authentication page.
-    The redirect_uri must match the one configured in the Google Cloud Console.
-    """
     redirect_uri = "http://127.0.0.1:8000/auth"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
+
 @app.get('/auth')
 async def auth(request: Request):
-    """
-    This is the callback route that Google redirects to after authentication.
-    It processes the authorization token and stores user info in the session.
-    """
-    user = request.session.get('user')
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception as e:
+        print(f"Error during authorize_access_token: {e}")
+        return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
 
-    if user:
-        print("already logged in.")
-        return RedirectResponse(url="/")
-    else:
-        try:
-            token = await oauth.google.authorize_access_token(request)
-            
-        except Exception as e:
-            # If there's an error, this will print it to your console
-            print(f"Error during authorize_access_token: {e}")
-            return HTMLResponse(f"<h1>Error logging in: {e}</h1>")
-        
-        user_info = token.get('userinfo')
-
-        if user_info:
-            request.session['user'] = dict(user_info)
-        
+    user_info = token.get('userinfo')
+    if user_info:
+        request.session['user'] = dict(user_info)
         request.session['token'] = token
 
         return RedirectResponse(url='/')
 
+
 @app.get('/logout')
 async def logout(request: Request):
-    """
-    Clears the user session and redirects to the homepage.
-    """
     request.session.clear()
     return RedirectResponse(url='/')
 
-@app.get('/profile', response_class=RedirectResponse)
+
+@app.get('/profile', response_class=HTMLResponse)
 async def profile(request: Request):
-    """
-    A protected route that displays user profile information from the session.
-    """
     user = request.session.get('user')
     if not user:
         return RedirectResponse(url='/login')
+
+    return f"""
+        <h1>Profile</h1>
+        <p><strong>Name:</strong> {user.get('name')}</p>
+        <p><strong>Email:</strong> {user.get('email')}</p>
+        <img src="{user.get('picture')}" alt="Profile Picture">
+        <br><br>
+        <a href="/">Home</a>
+    """
+
 
 @app.get('/calendar/events')
 async def calendar_events(request: Request):
@@ -140,7 +128,6 @@ async def calendar_events(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     try:
-        # Get the first day of the current year.
         current_year = datetime.now().year
         start_of_year = datetime(current_year, 1, 1, tzinfo=timezone.utc)
         time_min_param = start_of_year.isoformat()
@@ -156,10 +143,10 @@ async def calendar_events(request: Request):
             token=token,
             params=params
         )
+
         resp.raise_for_status()
         data = resp.json()
-        
-        # Convert events to JSON suitable for frontend calendar
+
         events = []
         for event in data.get('items', []):
             start_info = event.get('start', {})
@@ -179,25 +166,18 @@ async def calendar_events(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not fetch calendar events: {e}")
 
+
+# ----------------------------
+#     SYLLABUS UPLOAD
+# ----------------------------
+
 @app.post("/upload-syllabus", response_model=AiAnalysisResult)
 async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
-    """
-    Accepts a syllabus file (PDF), extracts its text, analyzes it with an AI
-    to find a summary and key dates, and returns the structured data.
-    """
-
-    # 1. Extract text from the uploaded PDF file
     print(f"Processing file: {file.filename}")
-    syllabus_text = await extract_text_from_file(file)
 
-    # 2. Send the text to the AI for analysis
-    print("Sending extracted text to AI for analysis...")
-    
-    # --- THIS IS THE CHANGE ---
-    # Get the current date and pass it as context
+    syllabus_text = await extract_text_from_file(file)
     today = date.today()
     analysis_result = await extract_analysis_from_text(syllabus_text, today)
-    # --- END OF CHANGE ---
 
     if not analysis_result:
         raise HTTPException(
@@ -205,9 +185,62 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
             detail="Failed to get a valid analysis from the AI model."
         )
 
-    # 3. Return the structured result
-    print("Analysis complete. Returning structured data.")
     return analysis_result
+
+
+# ----------------------------
+#        CHAT ENDPOINT
+# ----------------------------
+
+client = OpenAI()
+
+
+class ChatTurn(BaseModel):
+    role: Literal["system", "user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatTurn]
+
+
+class ScheduleQuestion(BaseModel):
+    question: str
+
+
+class ChatReply(BaseModel):
+    reply: str
+
+
+@app.post("/chat", response_model=ChatReply)
+async def chat(req: ChatRequest):
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="messages required")
+
+    msgs = [{
+        "role": "system",
+        "content": (
+            "You are SchedulEase, an academic assistant. "
+            "Be concise and helpful. If asked about due dates, "
+            "explain what you can do with ICS/Google Calendar in this app."
+        )
+    }]
+
+    msgs += [{"role": m.role, "content": m.content} for m in req.messages]
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=msgs,
+        temperature=0.2,
+    )
+
+    text = completion.choices[0].message.content or "..."
+    return ChatReply(reply=text)
+
+
+# ----------------------------
+#        MAIN
+# ----------------------------
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
