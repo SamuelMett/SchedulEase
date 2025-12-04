@@ -239,7 +239,7 @@ Keep each question and answer concise and focused on one idea.
 """
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "You create helpful, concise study flashcards."},
             {"role": "user", "content": prompt},
@@ -334,7 +334,7 @@ async def make_study_assets(syllabus_text: str, keywords: List[str]) -> StudyAss
     )
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": prompt},
@@ -401,7 +401,7 @@ async def summarize_document(text: str) -> str:
     )
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -435,7 +435,7 @@ async def detect_calendar_event(message: str) -> Optional[Dict[str, Any]]:
     )
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": message},
@@ -558,7 +558,7 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
     )
 
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -571,7 +571,7 @@ async def answer_query(message: str, ctx: ChatContext) -> Tuple[str, Optional[Di
 
 async def general_chat(message: str) -> str:
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "Be helpful, concise, and accurate."},
             {"role": "user", "content": message},
