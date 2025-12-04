@@ -70,11 +70,13 @@ async def homepage(request: Request):
     if user:
         name = user.get('name')
         return f'''
-            <h1>Welcome, {name}!</h1>
+            <h1>Hello, {name}!</h1>
             <p>You are logged in.</p>
-            <p>Please return to the webapp.</p>
+            <a href="/profile">View Profile</a><br>
+            <a href="/calendar/events">View Your Google Calendar Events</a><br>
+            <a href="/logout">Logout</a>
         '''
-    return HTMLResponse
+    return '<h1>Welcome!</h1><a href="/login">Login with Google</a>'
 
 
 @app.get('/login')
