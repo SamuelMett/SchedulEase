@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using SchedulEase.Services
 @inject NavigationManager NavigationManager
 @using Radzen
@@ -49,9 +49,17 @@
 
 <RadzenDialog />
 
+@*  *@
+@if (!IsAuthPage && AuthService.IsAuthenticated)
+{
+    <FloatChat />
+}
 
-<FloatChat />
 @code {
+    private bool IsAuthPage =>
+        NavigationManager.Uri.Contains("/login", StringComparison.OrdinalIgnoreCase) ||
+        NavigationManager.Uri.Contains("/signup", StringComparison.OrdinalIgnoreCase);
+
     private void HandleSignOut()
     {
         AuthService.SignOut();
