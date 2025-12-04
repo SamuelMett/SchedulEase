@@ -1,0 +1,106 @@
+@page "/study-material"
+@using ScheduleEase.Client.Models
+@using System.Net.Http.Json
+@using Radzen.Blazor
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+
+<RadzenStack Gap="1rem">
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+        <h3>Generate Study Material</h3>
+    </RadzenStack>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Lighter" AllowClose="true" Close="@(() => errorMessage = null)">
+            <strong>Error:</strong> @errorMessage
+        </RadzenAlert>
+    }
+
+    @if (events == null)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" />
+        <p><em>Loading your calendar events...</em></p>
+    }
+    else if (!events.Any())
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Lighter" AllowClose="false">
+            No events found. Please add events to your calendar first.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.H6">Select an Event</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" class="mb-3">Choose a calendar event to generate study material for:</RadzenText>
+            
+            <RadzenDataList WrapItems="true" 
+                           AllowPaging="true" 
+                           Data="@events" 
+                           PageSize="5"
+                           TItem="GoogleCalendarEvent">
+                <Template Context="calendarEvent">
+                    <RadzenCard Style="width: 100%; margin-bottom: 10px;">
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <RadzenStack Gap="0.5rem">
+                                <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.H5">
+                                    <strong>@calendarEvent.Title</strong>
+                                </RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body2">
+                                    <RadzenIcon Icon="event" /> @calendarEvent.Start.ToString("MMM dd, yyyy h:mm tt") - @calendarEvent.End.ToString("h:mm tt")
+                                </RadzenText>
+                            </RadzenStack>
+                            <RadzenButton 
+                                Text="Generate Material" 
+                                Icon="auto_awesome" 
+                                ButtonStyle="ButtonStyle.Success"
+                                Click="@(() => GenerateStudyMaterial(calendarEvent))"
+                                Disabled="@isGenerating" />
+                        </RadzenStack>
+                    </RadzenCard>
+                </Template>
+            </RadzenDataList>
+        </RadzenCard>
+
+        @if (isGenerating)
+        {
+            <RadzenCard>
+                <RadzenStack Gap="1rem" AlignItems="AlignItems.Center">
+                    <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Mode="ProgressBarMode.Indeterminate" />
+                    <RadzenText TextStyle="TextStyle.Body1">
+                        Generating study material for <strong>@selectedEvent?.Title</strong>...
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption">This may take 30 seconds to 2 minutes.</RadzenText>
+                </RadzenStack>
+            </RadzenCard>
+        }
+
+        @if (generatedMaterial != null)
+        {
+            <RadzenCard>
+                <RadzenStack Gap="1rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                        <RadzenText TextStyle="TextStyle.H5">Study Material for: @generatedMaterial.EventTitle</RadzenText>
+                        <RadzenButton 
+                            Text="Copy" 
+                            Icon="content_copy" 
+                            ButtonStyle="ButtonStyle.Light"
+                            Click="@CopyToClipboard" />
+                    </RadzenStack>
+                    
+                    <RadzenText TextStyle="TextStyle.Caption">
+                        Generated on @generatedMaterial.CreatedAt.ToString("MMMM dd, yyyy h:mm tt")
+                    </RadzenText>
+                    
+                    <RadzenCard Variant="Variant.Outlined">
+                        <div style="white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                            @generatedMaterial.Content
+                        </div>
+                    </RadzenCard>
+                </RadzenStack>
+            </RadzenCard>
+        }
+    }
+</RadzenStack>
+
+<RadzenPanelMenuItem Text="Study Material" Icon="auto_awesome" Path="/study-material" />

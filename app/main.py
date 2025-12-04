@@ -6,6 +6,7 @@ load_dotenv()
 
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import uuid  # ADD THIS
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -23,6 +24,9 @@ from .google_scheduler import schedule_event_on_google_calendar, schedule_multip
 from app.routers import chat as chat_router
 
 app = FastAPI(title="SchedulEase API")
+
+# Initialize OpenAI client (MOVE THIS UP)
+client = OpenAI()
 
 # CORS
 app.add_middleware(
@@ -191,11 +195,89 @@ async def upload_and_analyze_syllabus(file: UploadFile = File(...)):
 
 
 # ----------------------------
-#        CHAT ENDPOINT
+#   STUDY MATERIAL GENERATION
 # ----------------------------
 
-client = OpenAI()
+# ADD THESE MODELS
+class GenerateStudyMaterialRequest(BaseModel):
+    eventTitle: str
+    eventStart: datetime
+    eventEnd: datetime
 
+
+class StudyMaterialResponse(BaseModel):
+    id: str
+    eventTitle: str
+    eventDate: datetime
+    content: str
+    createdAt: datetime
+
+
+@app.post("/api/study-material/generate", response_model=StudyMaterialResponse)
+async def generate_study_material(request: GenerateStudyMaterialRequest):
+    """
+    Generate study material for a calendar event using OpenAI
+    """
+    try:
+        # Calculate event duration
+        duration = request.eventEnd - request.eventStart
+        duration_hours = duration.total_seconds() / 3600
+        
+        # Create a prompt for the AI model
+        prompt = f"""You are an intelligent study assistant. A student has a calendar event titled "{request.eventTitle}" scheduled on {request.eventStart.strftime("%B %d, %Y at %I:%M %p")} for {duration_hours:.1f} hours.
+
+Generate comprehensive study material for this event. Include:
+1. **Overview**: Brief description of what this event is about
+2. **Key Topics**: Main subjects or areas to focus on
+3. **Study Tips**: Specific strategies for preparing for this event
+4. **Time Management**: Recommended study schedule leading up to the event
+5. **Important Notes**: Any critical information or reminders
+
+Make the study material detailed, actionable, and tailored to the event title. If it appears to be an exam or test, focus on exam preparation strategies. If it's a presentation, focus on presentation skills. If it's homework, focus on completing the assignment effectively.
+
+Keep the content well-structured, clear, and student-friendly."""
+
+        # Call OpenAI API
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an expert academic study assistant helping students prepare for their academic events."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+        )
+        
+        # Extract the generated content
+        study_content = completion.choices[0].message.content or "Failed to generate content"
+        
+        # Create response
+        study_material = StudyMaterialResponse(
+            id=str(uuid.uuid4()),
+            eventTitle=request.eventTitle,
+            eventDate=request.eventStart,
+            content=study_content,
+            createdAt=datetime.now()
+        )
+        
+        return study_material
+        
+    except Exception as e:
+        print(f"Error generating study material: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate study material: {str(e)}"
+        )
+
+
+# ----------------------------
+#        CHAT ENDPOINT
+# ----------------------------
 
 class ChatTurn(BaseModel):
     role: Literal["system", "user", "assistant"]
