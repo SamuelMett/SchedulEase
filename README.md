@@ -1,79 +1,97 @@
-# SchedulEase
+ScheduleEase – AI Scheduling Assistant
 
-## Phase 1: Project Concept, User Research & AI Model Exploration
+ScheduleEase is an AI-powered scheduling assistant designed to help users manage their daily tasks, reminders, and events through a conversational interface. Instead of manually entering schedules, users can interact with an AI chatbot that understands natural language and automatically organizes their schedule.
 
-### Weight: 15% of final grade
+The goal of ScheduleEase is to simplify personal productivity by combining scheduling tools with intelligent AI assistance.
 
-#### Objective
+Overview
 
-Students will form teams (2-3 members) and develop a comprehensive project concept that
-combines user needs with AI capabilities. This phase emphasizes understanding both your users
-and the AI tools available to serve them.
-Key Deliverables
+Many people struggle to keep track of tasks, deadlines, and meetings across multiple platforms. ScheduleEase solves this by allowing users to interact with an AI assistant that can understand commands such as:
 
-### 1. Project Proposal (25% of phase grade)
+“Schedule a meeting tomorrow at 3 PM”
 
-#### Requirements
+“Remind me to finish my assignment tonight”
 
-- Problem Statement: Clearly define the problem your application will solve
-  - A file upload webapp that can scan uploaded files metadata and schedule events on a google calendar while saving a file summary.
-- Target Users: Identify your primary and secondary user groups
-  - Primary: Students
-  - Secondary: Business managers/supervisors
-- Core Functionality: Outline 5-7 key features your application will provide
-  - Upload a pdf, csv, json, etc. file
-  - Read the files metadata, scanning text
-  - Google calendar integration to automatically schedule events
-  - Intuitive AI that can summarize and automatically schedule events accurately and rating criticality
-  - Webapp capable of high availability, confidentiality, and integrity
-  - Interactive UI that is easy to use
-- AI Integration Strategy: Explain how AI will enhance the user experience (not just add complexity)
-  - AI will be used in the backend to scan files, decipher dates, and use the google api to schedule events like tests and homework due
-- Success Metrics: Define how you'll measure if your solution works
-  - The success rate of recognizing critical events such as exams and if it schedules them at the right day.
-  - Exact time of the day the event is
-  - Homework is classified correctly by level of importance
-  - Summaries are accurate and are added to description/details of event
+“What do I have planned today?”
 
-### 2. AI Model Research & Selection (35% of phase grade)
+The system processes user requests and automatically creates, updates, or retrieves scheduled events.
 
-#### Requirements 2
+Key Features
+AI Chatbot Assistant
 
-- Model Exploration: Research and evaluate at least 5 pre-trained models that could
-enhance your application
-- Technical Assessment: For each model, document:
-    - Input/output requirements
-    - API limitations and rate limits
-    - Response time expectations
-    - Cost considerations (if applicable)
-- Final Model Selection: Choose 1-2 models and justify your selection based on user
-needs and technical feasibility
-- Integration Plan: Outline how these models will work within your user flow
+Users interact with a conversational AI assistant that helps create and manage schedules.
 
-Recommended Sources:
+Natural Language Scheduling
 
-- Hugging Face Model Hub
-- OpenAI API
-- Google Cloud AI
-- Azure Cognitive Services
-- AWS AI Services
+Users can type normal sentences instead of manually filling out forms.
 
-### 3. User Research & Personas (40% of phase grade)
+Example:
 
-#### Requirements 3
+"Remind me to study at 7 PM tonight"
+Task & Event Management
 
-- User Interviews: Conduct interviews with at least 6 potential users
-- Research Synthesis: Identify key user needs, pain points, and goals
-- Persona Development: Create 3 detailed user personas including:
-    - Demographics and background
-    - Goals and motivations
-    - Pain points and frustrations
-    - Technology comfort level
-    - Relationship with AI/automation
-    - Context of use scenarios
+Users can create, edit, and delete tasks or events easily through the chatbot.
 
-#### AI-Specific Considerations
+Daily Schedule Summary
 
-- How do users currently solve the problem your AI will address?
-- What are their expectations and concerns about AI-powered solutions?
-- What level of AI transparency do they need?
+The AI assistant can provide a summary of the user’s schedule for the day.
+
+Smart Reminders
+
+Users receive reminders for upcoming tasks and deadlines.
+
+User Authentication
+
+Secure login system that allows users to save and access their schedules.
+
+Tech Stack
+Frontend
+
+React
+
+Tailwind CSS
+
+Backend
+
+FastAPI (Python)
+
+Database
+
+PostgreSQL
+
+AI Integration
+
+OpenAI API (ChatGPT)
+
+Other Tools
+
+Git & GitHub
+
+REST APIs
+
+JWT Authentication
+
+Example User Interaction
+
+User:
+
+Schedule a meeting with my group tomorrow at 2 PM
+
+AI Assistant:
+
+Got it! Your meeting has been scheduled for tomorrow at 2 PM.
+
+User:
+
+What do I have today?
+
+AI Assistant:
+
+Today you have:
+• Gym at 6 PM
+• Study session at 8 PM
+
+
+Smart task prioritization using AI
+
+Mobile application
